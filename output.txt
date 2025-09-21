@@ -1,0 +1,134 @@
+SAS Model Review
+
+Model: Code_1_Ingestion and Feature Engg
+
+1) Input Data Elements
+- work.txn_raw: acct_id, amt, delinquency, merchant_cat, txn_dt
+- work.acct_master: acct_id, limit, open_dt, product_cd, rate_apr
+- work.cust_master: acct_id, cust_id, seg, state
+- work.base_join: (attributes: unknown)
+
+2) Code Details
+a. Purpose of the code: Ingest raw transaction and master data, create monthly behavioral and risk features for credit risk modeling.
+b. Data transformation logic implemented
+- Generate mock source tables work.txn_raw, work.acct_master, and work.cust_master if they do not exist with synthetic data.
+- Aggregate transactions monthly per account in work.txn_mth table, computing sums of positive and negative spend, delinquency hits, transaction counts, and average absolute transaction amount.
+- Join distinct accounts from txn_raw with account master, customer master, and monthly transaction aggregates to create a base feature table work.base_join with coalesced feature values.
+- Calculate rolling balances, utilization ratios, utilization flags, debt-to-income proxy, delinquency proxies, and point-in-time PD, LGD, EAD estimates in work.risk_base dataset.
+c. Calculation Logic implemented
+- Monthly aggregation: asof_mth = start of transaction month; spend_pos = sum of positive amounts; spend_neg = sum of negative amounts; delinq_hits = count of delinquency flags; txn_cnt = transaction count; avg_txn_amt = average absolute transaction amount.
+- Balance rolling: first month balance = min(limit, spend_pos - repayments); subsequent months balance = max(0, min(limit, lag(balance) + spend_pos - repayments)).
+- Utilization = balance divided by limit (with limit at least 1).
+- High utilization flag if util > 0.8.
+- DTI proxy = min(2, 0.2 + 1.2*util + 0.1*(txn_cnt>20)).
+- Days past due accumulates by 30 days if delinquency hits > 0 else reduced by 15 days but not below zero.
+- PD point = capped at 0.25, computed as 0.02 + 0.15*util + 0.05 if days_past_due>0 + 0.02 if seg='SME'.
+- LGD point capped at 0.75, base 0.35 plus 0.2 if product in ('PL','HELOC') plus 0.1 if state in ('FL','TX','CA').
+- EAD point = balance times (1 + 0.05 if product='CARD' + 0.10 if product='HELOC').
+
+3) Output Data Elements
+- work.txn_mth: acct_id, asof_mth, avg_txn_amt, delinq_hits, spend_neg, spend_pos, txn_cnt
+- work.base_join: acct_id, asof_mth, avg_txn_amt, cust_id, delinq_hits, limit, open_dt, product_cd, rate_apr, repayments, seg, spend_pos, state, txn_cnt
+- work.risk_base: acct_id, asof_mth, avg_txn_amt, balance, cust_id, days_past_due, delinq_hits, dti_proxy, ead_point, high_util, lgd_point, limit, open_dt, pd_point, product_cd, rate_apr, repayments, seg, spend_pos, state, txn_cnt, util
+- work.acct_master: (attributes: unknown)
+- work.cust_master: (attributes: unknown)
+- work.txn_raw: (attributes: unknown)
+
+---
+
+Model: Code_2_EAD/RWA & IFRS9/CECL Staging
+
+1) Input Data Elements
+- work.risk_base: acct_id, asof_mth, balance, cust_id, days_past_due, ead_point, high_util, lgd_point, limit, pd_point, product_cd, rate_apr, seg, state
+- work.joined: (attributes: unknown)
+- work.staging: (attributes: unknown)
+
+2) Code Details
+a. Purpose of the code: To stage credit risk data by asset class and risk stage, calculate proxies for Expected Credit Loss (ECL), Risk Weighted Assets (RWA), and interest income, followed by portfolio aggregation and preparing a final risk view table.
+b. Data transformation logic implemented
+- {'description': 'Create mapping of product codes to Basel asset classes and risk weights.', 'output_table': 'work.asset_class_map', 'transform_steps': [{'product_cd': 'CARD', 'asset_class': 'Retail', 'risk_weight': 0.75}, {'product_cd': 'PL', 'asset_class': 'Retail', 'risk_weight': 0.85}, {'product_cd': 'HELOC', 'asset_class': 'Secured', 'risk_weight': 0.5}]}
+- {'description': 'Join risk_base with asset_class_map to append asset_class and risk_weight.', 'input_tables': ['work.risk_base', 'work.asset_class_map'], 'output_table': 'work.joined', 'join_condition': 'risk_base.product_cd = asset_class_map.product_cd'}
+- {'description': 'Assign credit risk stage (Stage1/Stage2/Stage3) based on days_past_due and high_util; calculate ECL proxy, Basel RWA proxy, interest income; keep relevant columns.', 'input_table': 'work.joined', 'output_table': 'work.staging', 'logic': ["stage = if days_past_due >= 90 then 'Stage3', else if days_past_due>0 or high_util then 'Stage2', else 'Stage1'", 'stage_scalar = 1 if Stage1, 2.5 if Stage2, 4 if Stage3', 'ecl = ead_point * pd_point * lgd_point * stage_scalar', 'rwa = risk_weight * ead_point', 'int_income = balance * rate_apr / 12', 'retain columns: acct_id, cust_id, state, seg, product_cd, asof_mth, balance, limit, ead_point, pd_point, lgd_point, asset_class, risk_weight, stage, stage_scalar, ecl, rwa, int_income']}
+- {'description': 'Aggregate portfolio metrics by asof_mth, asset_class, and stage: sum of ead_point, ecl, rwa, int_income.', 'input_table': 'work.staging', 'output_table': 'work.portfo_agg', 'aggregations': {'ead_sum': 'sum of ead_point', 'ecl_sum': 'sum of ecl', 'rwa_sum': 'sum of rwa', 'nii_sum': 'sum of int_income'}}
+- {'description': 'Join staging data with aggregated portfolio data to produce final risk_rwa table.', 'input_tables': ['work.staging', 'work.portfo_agg'], 'output_table': 'work.risk_rwa', 'join_condition': 'staging.asof_mth = portfo_agg.asof_mth and staging.asset_class = portfo_agg.asset_class and staging.stage = portfo_agg.stage'}
+c. Calculation Logic implemented
+- Assign Stage3 if days_past_due >= 90
+- Assign Stage2 if 0 < days_past_due < 90 or high_util is true
+- Assign Stage1 otherwise
+- stage_scalar = 1 for Stage1, 2.5 for Stage2, 4 for Stage3
+- ECL proxy = ead_point * pd_point * lgd_point * stage_scalar
+- Basel RWA proxy = risk_weight * ead_point
+- Interest income proxy = balance * rate_apr / 12
+- Aggregate sums of ead_point, ecl, rwa, int_income grouped by asof_mth, asset_class, stage
+
+3) Output Data Elements
+- work.asset_class_map: asset_class, product_cd, risk_weight
+- work.joined: acct_id, asof_mth, asset_class, balance, cust_id, days_past_due, ead_point, high_util, lgd_point, limit, pd_point, product_cd, rate_apr, risk_weight, seg, state
+- work.staging: acct_id, asof_mth, asset_class, balance, cust_id, ead_point, ecl, int_income, lgd_point, limit, pd_point, product_cd, risk_weight, rwa, seg, stage, stage_scalar, state
+- work.portfo_agg: asof_mth, asset_class, ead_sum, ecl_sum, nii_sum, rwa_sum, stage
+- work.risk_rwa: acct_id, asof_mth, asset_class, balance, cust_id, ead_point, ead_sum, ecl, ecl_sum, int_income, lgd_point, limit, nii_sum, pd_point, product_cd, risk_weight, rwa, rwa_sum, seg, stage, stage_scalar, state
+
+---
+
+Model: Code_3_Scenario Stress Testing & Capital Demand
+
+1) Input Data Elements
+- work.risk_rwa: acct_id, asof_mth, asset_class, ead_point, ecl, int_income, lgd_point, nii_sum, pd_point, product_cd, risk_weight, rwa, stage, stage_scalar
+- work.scen_apply: (attributes: unknown)
+
+2) Code Details
+a. Purpose of the code: To perform stress testing on risk weighted assets (RWA) and calculate capital demand under different macroeconomic scenarios by applying shocks to PD, LGD, RW, and NII values.
+b. Data transformation logic implemented
+- {'transform_name': 'Define scenarios', 'description': 'Create a scenarios table with shock multipliers and additions for PD, LGD, RW, and NII', 'output_table': 'work.scenarios', 'output_attributes': ['scenario', 'pd_mult', 'lgd_add', 'rw_add', 'nii_mult']}
+- {'transform_name': 'Cross join scenarios', 'description': 'Cross join scenario shocks to each account-month row to create scenario-applied dataset', 'input_tables': ['work.risk_rwa', 'work.scenarios'], 'output_table': 'work.scen_apply'}
+- {'transform_name': 'Apply shocks and compute stressed metrics', 'description': 'Calculate stressed PD, LGD, RW, ECL, RWA, NII, and compute capital demand proxy CET1 needed', 'input_table': 'work.scen_apply', 'output_table': 'work.stressed', 'output_attributes': ['scenario', 'acct_id', 'asof_mth', 'product_cd', 'asset_class', 'stage', 'ead_point', 'pd_point', 'lgd_point', 'risk_weight', 'stage_scalar', 'ecl', 'ecl_stress', 'rwa', 'rwa_stress', 'nii_sum', 'nii_stress', 'cet1_need']}
+- {'transform_name': 'Portfolio rollups', 'description': 'Aggregate stressed and base metrics by scenario and month to summarize portfolio impact', 'input_table': 'work.stressed', 'output_table': 'work.stressed_metrics', 'output_attributes': ['scenario', 'asof_mth', 'ead', 'ecl_base', 'ecl_stress', 'rwa_base', 'rwa_stress', 'nii_base', 'nii_stress', 'cet1_need']}
+c. Calculation Logic implemented
+- {'calculation': 'pd_stress = min(0.99, pd_point * pd_mult)'}
+- {'calculation': 'lgd_stress = min(0.95, lgd_point + lgd_add)'}
+- {'calculation': 'rw_stress = min(1.00, risk_weight + rw_add)'}
+- {'calculation': 'ecl_stress = ead_point * pd_stress * lgd_stress * stage_scalar'}
+- {'calculation': 'rwa_stress = rw_stress * ead_point'}
+- {'calculation': 'nii_stress = int_income * nii_mult'}
+- {'calculation': 'cet1_need = 0.08 * rwa_stress + 0.5 * (ecl_stress - ecl)'}
+
+3) Output Data Elements
+- work.scenarios: lgd_add, nii_mult, pd_mult, rw_add, scenario
+- work.scen_apply: acct_id, asof_mth, asset_class, ead_point, ecl, int_income, lgd_add, lgd_point, nii_mult, nii_sum, pd_mult, pd_point, product_cd, risk_weight, rw_add, rwa, scenario, stage, stage_scalar
+- work.stressed: acct_id, asof_mth, asset_class, cet1_need, ead_point, ecl, ecl_stress, lgd_point, nii_stress, nii_sum, pd_point, product_cd, risk_weight, rwa, rwa_stress, scenario, stage, stage_scalar
+- work.stressed_metrics: asof_mth, cet1_need, ead, ecl_base, ecl_stress, nii_base, nii_stress, rwa_base, rwa_stress, scenario
+
+---
+
+Model: Code_4_Final Regulatory/Finance Report
+
+1) Input Data Elements
+- work.risk_base: (attributes: unknown)
+- work.stressed_metrics: asof_mth, cet1_need, ead, ecl_base, ecl_stress, nii_base, nii_stress, rwa_base, rwa_stress, scenario
+- work.base_s: (attributes: unknown)
+
+2) Code Details
+a. Purpose of the code: Generate a final regulatory and finance report showing capital ratios, liquidity coverage ratio (LCR), earnings signals, and management actions under base and severe stress scenarios.
+b. Data transformation logic implemented
+- Check existence of work.risk_base and work.stressed_metrics datasets.
+- Create work.balance_sheet_params with monthly balance sheet assumptions (common_equity_tier1, addl_tier1, hqla, net_outflows_30d) having random variations over months from Jan 2024 to Aug 2024.
+- From work.stressed_metrics extract BASE and SEVERE scenarios, join them side-by-side on asof_mth into work.base_s with renamed columns for base and severe scenarios.
+- Join work.base_s with work.balance_sheet_params by asof_mth and calculate final report metrics including capital amounts, ratios, LCR, earnings, and management action signal, output to work.final_reg_report.
+- Print work.final_reg_report with formatted labels and numeric formats.
+- Export work.final_reg_report to CSV file named 'final_reg_report.csv'.
+c. Calculation Logic implemented
+- common_equity_tier1, addl_tier1, hqla, net_outflows_30d values generated randomly per month (intnx monthly intervals).
+- LEFT JOIN stressed_metrics filtering BASE and SEVERE scenarios on asof_mth.
+- Calculate cet1_cap = common_equity_tier1.
+- Calculate tier1_cap = common_equity_tier1 + addl_tier1.
+- Calculate CET1 ratio base = common_equity_tier1 / rwa_base.
+- Calculate CET1 ratio stress = (common_equity_tier1 - cet1_need_severe) / rwa_severe.
+- Calculate LCR = hqla / net_outflows_30d.
+- Determine management action: if ecl_severe > 1.7 * ecl_base then 'Increase overlays', else if cet1_need_severe > 0.10 * rwa_severe then 'Consider RWA optimization', else 'Within appetite'.
+
+3) Output Data Elements
+- work.balance_sheet_params: addl_tier1, asof_mth, common_equity_tier1, hqla, net_outflows_30d
+- work.base_s: asof_mth, cet1_need_severe, ead_base, ecl_base, ecl_severe, nii_base, nii_severe, rwa_base, rwa_severe
+- work.final_reg_report: asof_mth, cet1_cap, cet1_ratio_base, cet1_ratio_stress, ecl_base, ecl_severe, hqla, lcr, mgmt_action, net_outflows_30d, nii_base, nii_severe, rwa_base, rwa_severe, tier1_cap
+
+---

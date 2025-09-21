@@ -33,3 +33,10 @@ saved_model/**/* filter=lfs diff=lfs merge=lfs -text
 *.zip filter=lfs diff=lfs merge=lfs -text
 *.zst filter=lfs diff=lfs merge=lfs -text
 *tfevents* filter=lfs diff=lfs merge=lfs -text
+community_contributions/book_review/book_proposal.pdf filter=lfs diff=lfs merge=lfs -text
+community_contributions/workflow_patterns/1-Prompt_Chaining/docs/prompt_chaining1.jpg filter=lfs diff=lfs merge=lfs -text
+community_contributions/workflow_patterns/1-Prompt_Chaining/docs/prompt_chaining2.jpg filter=lfs diff=lfs merge=lfs -text
+community_contributions/workflow_patterns/2-Parallelization/docs/parallelization1.jpg filter=lfs diff=lfs merge=lfs -text
+community_contributions/workflow_patterns/3-Routing/docs/routing1.jpg filter=lfs diff=lfs merge=lfs -text
+community_contributions/workflow_patterns/3-Routing/docs/routing2.jpg filter=lfs diff=lfs merge=lfs -text
+lineage.jpeg filter=lfs diff=lfs merge=lfs -text
