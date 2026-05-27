@@ -19,6 +19,7 @@ from __future__ import annotations
 import asyncio
 import time
 import uuid
+from collections.abc import Callable
 from dataclasses import dataclass, field
 from datetime import UTC, datetime
 
@@ -53,6 +54,10 @@ from modeltracex.state import (
 )
 
 _MAX_CHUNK_TOKENS = 6000
+
+# A per-model progress event (consumed by the SSE channel, FR-8.3). Fired in the
+# event-loop thread, so the callback need not be thread-safe.
+ProgressFn = Callable[[dict[str, object]], None]
 
 
 @dataclass
@@ -167,16 +172,47 @@ async def _analyze_async(
     requests_per_minute: int,
     tokens_per_minute: int,
     max_chunk_tokens: int,
+    on_progress: ProgressFn | None,
 ) -> list[_ModelResult]:
     sem = asyncio.Semaphore(max_concurrency)
     limiter = _TokenBucket(requests_per_minute, tokens_per_minute)
+    total = len(inputs)
+    completed = 0
+
+    def emit(event: dict[str, object]) -> None:
+        if on_progress is not None:
+            on_progress(event)
 
     async def run(mi: ModelInput) -> _ModelResult:
+        nonlocal completed
+        model_ref = ids.model_id(mi.label, mi.source_files)
+        emit(
+            {
+                "type": "model",
+                "model_id": model_ref,
+                "label": mi.label,
+                "status": "started",
+                "completed": completed,
+                "total": total,
+            }
+        )
         async with sem:
             await limiter.acquire(1, estimate_tokens(mi.code))
-            return await asyncio.to_thread(
+            result = await asyncio.to_thread(
                 _analyze_model_sync, provider, mi, detail_level, max_chunk_tokens
             )
+        completed += 1
+        emit(
+            {
+                "type": "model",
+                "model_id": model_ref,
+                "label": mi.label,
+                "status": result.status.value,
+                "completed": completed,
+                "total": total,
+            }
+        )
+        return result
 
     return list(await asyncio.gather(*(run(mi) for mi in inputs)))
 
@@ -195,6 +231,7 @@ def analyze_run(
     requests_per_minute: int = 6000,
     tokens_per_minute: int = 100_000_000,
     max_chunk_tokens: int = _MAX_CHUNK_TOKENS,
+    on_progress: ProgressFn | None = None,
 ) -> RunState:
     results = asyncio.run(
         _analyze_async(
@@ -205,6 +242,7 @@ def analyze_run(
             requests_per_minute,
             tokens_per_minute,
             max_chunk_tokens,
+            on_progress,
         )
     )
 
@@ -335,6 +373,11 @@ def _assemble_lineage(state: RunState, results: list[_ModelResult]) -> None:
         ]
 
         # Column-level edges — authoritative home of expressions (R4), from lineage rows.
+        # The expression lives on the edge: pull it from the matching calculation
+        # (calc.target == the edge's target element) so it isn't duplicated as prose.
+        expr_by_target = {
+            c.target: c.expression for c in (r.extraction.calculations if r.extraction else [])
+        }
         for row in r.extraction.lineage_rows if r.extraction else []:
             ttype = row.transformation_type or TransformationType.DERIVE
             ceid = ids.column_edge_id(
@@ -349,6 +392,7 @@ def _assemble_lineage(state: RunState, results: list[_ModelResult]) -> None:
                         target_element=row.target_element,
                         model_id=r.model_ref,
                         transformation_type=ttype,
+                        expression=expr_by_target.get(row.target_element),
                         source=Provenance.EXTRACTED,
                     )
                 )

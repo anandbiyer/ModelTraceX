@@ -153,7 +153,10 @@ def test_build_provider_returns_configured_provider_in_cloud_mode() -> None:
         build_provider(Settings(provider="fake", security_mode=SecurityMode.CLOUD)).name == "fake"
     )
     # anthropic constructs lazily (no SDK / key needed until first call).
-    assert build_provider(Settings(provider="anthropic")).name == "anthropic"
+    assert (
+        build_provider(Settings(provider="anthropic", security_mode=SecurityMode.CLOUD)).name
+        == "anthropic"
+    )
 
 
 # --------------------------------------------------------------------------- #

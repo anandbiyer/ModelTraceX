@@ -20,6 +20,7 @@ import json
 
 from sqlalchemy import Float, Integer, String, Text, create_engine, delete, select
 from sqlalchemy.orm import DeclarativeBase, Mapped, Session, mapped_column
+from sqlalchemy.pool import StaticPool
 
 from modeltracex.state import Issue, Override, RunState
 
@@ -82,7 +83,15 @@ _FLATTENED: list[tuple[str, str, str | None]] = [
 class RunStore:
     def __init__(self, db: str = ":memory:") -> None:
         url = db if "://" in db else f"sqlite:///{db}"
-        self._engine = create_engine(url)
+        # The interactive API analyzes in a background thread, so the store is touched
+        # from more than one thread. An in-memory SQLite db is per-connection, so we
+        # pin a single shared connection (StaticPool) and disable the same-thread check;
+        # otherwise a second thread would open a fresh, empty database (no tables).
+        is_memory = ":memory:" in url or url in ("sqlite://", "sqlite:///:memory:")
+        kwargs: dict[str, object] = {"connect_args": {"check_same_thread": False}}
+        if is_memory:
+            kwargs["poolclass"] = StaticPool
+        self._engine = create_engine(url, **kwargs)
         Base.metadata.create_all(self._engine)
 
     def save(self, state: RunState) -> None:

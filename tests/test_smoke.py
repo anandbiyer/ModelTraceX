@@ -58,7 +58,11 @@ def test_module_imports(module_name: str) -> None:
     assert importlib.import_module(module_name) is not None
 
 
-def test_settings_defaults() -> None:
+def test_settings_defaults(monkeypatch: pytest.MonkeyPatch) -> None:
+    # Test genuine code defaults, isolated from ambient env (CI sets
+    # MODELTRACEX_PROVIDER=fake / SECURITY_MODE=local for the offline gate).
+    for var in ("MODELTRACEX_PROVIDER", "MODELTRACEX_MODEL", "MODELTRACEX_SECURITY_MODE"):
+        monkeypatch.delenv(var, raising=False)
     cfg = Settings()
     assert cfg.provider == "anthropic"
     assert cfg.model == "claude-sonnet-4-6"

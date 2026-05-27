@@ -24,11 +24,11 @@
 | Phase S — Synthetic Test Data | S-1..13 | 13 / 13 | ✅ Done (2026-05-26) |
 | Phase 0 — Foundation | P0-1..7, P0-T1..6 | 13 / 13 | ✅ Done (2026-05-26) |
 | Phase 1 — Headless E2E | P1-1..10, P1-T1..8 | 18 / 18 | ✅ Done (2026-05-26) |
-| Phase 2 — Lineage + UI | P2-1..11, P2-T1..6 | 0 / 17 | Not Started |
+| Phase 2 — Lineage + UI | P2-1..11, P2-T1..6 | 8 / 17 | 🚧 In Progress (backend landed 2026-05-27) |
 | Phase 3 — Chat + Scale + Languages | P3-1..10, P3-T1..6 | 0 / 16 | Not Started |
 | Phase 4 — Interop + Sensitive Hardening | P4-1..7, P4-T1..6 | 0 / 13 | Not Started |
 | Continuous Testing (cross-cutting) | CT-1..6 | 0 / 6 | Not Started |
-| **Total** | | **49 / 101** | **In Progress** |
+| **Total** | | **57 / 101** | **In Progress** |
 
 ---
 
@@ -116,10 +116,10 @@
 
 | ID | Activity | Status | Notes |
 |---|---|---|---|
-| P2-1 | Full REST surface (§13.1): /runs, /ingest, PATCH /models, /analyze, /state, /lineage, /exports/{kind}, POST /overrides, POST /estimate (D4/NFR-6) | Not Started | |
-| P2-2 | SSE channel `/runs/{id}/events`: per-model progress + incremental projection updates (FR-8.3) | Not Started | |
-| P2-3 | Column-level lineage (FR-5.1): expression home = column edge (R4); ReactFlowModel JSON; lazy column-subgraph endpoint | Not Started | |
-| P2-4 | Overrides + review_status (NFR-5, R9/D1): accept/reject/edit on tables/columns/edges; logged to overrides; "N edges pending review" source | Not Started | |
+| P2-1 | Full REST surface (§13.1): /runs, /ingest, PATCH /models, /analyze, /state, /lineage, /exports/{kind}, POST /overrides, POST /estimate (D4/NFR-6) | ✅ Done | `modeltracex/api/` (FastAPI factory + `RunRegistry`/`RunSession`): create→ingest (files/paste/zip/docx/pdf)→PATCH (merge + language override)→analyze (bg thread)→state/lineage/exports/overrides. `POST /estimate` is deterministic, **no LLM call** (adapter-scan + size projection). Provider injected via `get_provider` dep (tests bind FakeProvider). |
+| P2-2 | SSE channel `/runs/{id}/events`: per-model progress + incremental projection updates (FR-8.3) | ✅ Done | Added additive `on_progress` callback to the orchestrator (fires per-model started/completed with running counts); the analyze bg thread pushes events to a per-run `queue.Queue`; `EventSourceResponse` drains it (run_started → model* → run_completed/failed). |
+| P2-3 | Column-level lineage (FR-5.1): expression home = column edge (R4); ReactFlowModel JSON; lazy column-subgraph endpoint | ✅ Done | Orchestrator now populates `ColumnEdge.expression` from the matching calculation (R4 home). `api/lineage_json.py`: `table_graph` (swim-lane nodes + edges + `pending_review`) and the lazy `column_subgraph` (`?level=column&table=<id>`) that resolves both endpoints to a `table_id` so collapsed neighbours aggregate — no orphan edges. |
+| P2-4 | Overrides + review_status (NFR-5, R9/D1): accept/reject/edit on tables/columns/edges; logged to overrides; "N edges pending review" source | ✅ Done | `api/overrides.py`: accept/reject = set `review_status`; edit = set field + flip to Accepted; columns addressed as `<table_id>#<col>`. Logged to the store + re-applied by id on re-run (survives, §9.3). Fixed `RunStore` to share one in-memory connection across threads (StaticPool). |
 | P2-5 | Design system foundation (§13.4.0): shared dark tokens, Manrope + JetBrains Mono, provenance/confidence/status encodings, app-shell header (D2/D11), underline tab bar | Not Started | |
 | P2-6 | Shared primitives: inspector shell (node/edge/rule + accept/reject/edit), filter chips (incl. Low-confidence-only, D9), diff block | Not Started | |
 | P2-7 | Upload tab (§13.4.1): dropzone/multi-file/zip/paste, file→model table, badge language override (D5), data-handling control (D6), lineage-detail toggle, concurrency, pre-flight estimate | Not Started | |
@@ -127,10 +127,10 @@
 | P2-9 | Lineage tab (§13.4.3): React Flow swim-lanes (cyan/purple/green), node cards, edge labels, node+edge inspector, in-place lazy column expansion, export menu | Not Started | |
 | P2-10 | Data Quality tab (§13.4.4): metrics row, dimension/severity/low-conf chips, Sheet-7 rule register w/ inline evidence + inline accept/reject | Not Started | |
 | P2-11 | State/streaming wiring (§13.4.7): TanStack Query (optimistic accept/reject) + Zustand (UI state) + EventSource | Not Started | |
-| P2-T1 | API route tests (happy + validation); /estimate returns cost without an LLM call | Not Started | |
-| P2-T2 | SSE test — progress events per model; partial results visible before run completes | Not Started | |
-| P2-T3 | Column-lineage tests — R4 expression home, lazy expand subgraph, collapsed-table edge aggregation (no orphans) | Not Started | |
-| P2-T4 | Override tests — accept/reject/edit flips review_status, logs override, survives re-run by id | Not Started | |
+| P2-T1 | API route tests (happy + validation); /estimate returns cost without an LLM call | ✅ Done | `tests/test_phase2_api.py`: create/ingest/estimate/patch happy paths + validation (422 empty ingest/analyze, 409 pre-analyze state/lineage, 404 unknown run/export). `/estimate` asserted deterministic. |
+| P2-T2 | SSE test — progress events per model; partial results visible before run completes | ✅ Done | Streams `/events`, asserts per-model events (a `started` with `completed < total`) precede `run_completed` with final counts. |
+| P2-T3 | Column-lineage tests — R4 expression home, lazy expand subgraph, collapsed-table edge aggregation (no orphans) | ✅ Done | `?level=column&table=<mart>` returns the column + the edge carrying `expression="sum(amount_net)"` (R4); collapsed source resolves to `work.staging`'s `table_id` (no orphan). Unknown table → 404. |
+| P2-T4 | Override tests — accept/reject/edit flips review_status, logs override, survives re-run by id | ✅ Done | Accept edge → review_status Accepted + pending counter −1; edit table role → Accepted; unknown target → 404; **re-run re-applies the accept by stable id**. CI now installs `.[…,api]`; gate green with & without the CI env (fixed two pre-existing env-isolation gaps). **198 tests green; ruff + mypy clean.** |
 | P2-T5 | Frontend unit tests (vitest/RTL) — inspector, badge override, filter chips, provenance/confidence rendering | Not Started | |
 | P2-T6 | **[EXIT]** Playwright E2E — upload → analyze (FakeProvider) → browse Review → expand table → accept edge → download DOCX | Not Started | |
 
