@@ -1,0 +1,8 @@
+# Build + tooling artifacts (node_modules/dist are also covered by the root ignore)
+node_modules/
+dist/
+.vite/
+coverage/
+test-results/
+playwright-report/
+playwright/.cache/
