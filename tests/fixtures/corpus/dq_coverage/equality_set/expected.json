@@ -1,0 +1,11 @@
+{
+  "_doc": "DQ-coverage golden (schema-neutral). `in (...)` / .isin([...]) signals an allowed-value domain check.",
+  "usage_kind": "equality_set",
+  "dimensions": ["Validity"],
+  "severity": "Medium",
+  "part_c_statement": "Domain/code-value validity (allowed values)",
+  "twins": {"SAS": "model.sas", "Python": "model.py"},
+  "expected_usages": [
+    {"element": "crm.customers.status", "usage_kind": "equality_set", "languages": ["SAS", "Python"], "evidence_contains": "status"}
+  ]
+}

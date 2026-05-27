@@ -1,0 +1,11 @@
+{
+  "_doc": "DQ-coverage golden (schema-neutral). join_key carries two dimensions per Part C (also_dimension=Consistency).",
+  "usage_kind": "join_key",
+  "dimensions": ["Uniqueness", "Consistency"],
+  "severity": "High",
+  "part_c_statement": "Uniqueness on key; referential integrity to joined table",
+  "twins": {"SAS": "model.sas", "Python": "model.py"},
+  "expected_usages": [
+    {"element": "cust_id", "usage_kind": "join_key", "languages": ["SAS", "Python"], "evidence_contains": "cust_id"}
+  ]
+}

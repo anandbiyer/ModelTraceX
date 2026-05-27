@@ -1,0 +1,22 @@
+{
+  "purpose": "Management overlay report; consumes capital_rwa.csv and produces final_overlay_report.csv.",
+  "input_tables": [
+    {
+      "name": "capital_rwa.csv",
+      "columns": [
+        "record"
+      ]
+    }
+  ],
+  "output_tables": [
+    {
+      "name": "final_overlay_report.csv",
+      "columns": [
+        "record"
+      ]
+    }
+  ],
+  "lineage_rows": [
+    "capital_rwa.csv.record -> final_overlay_report.csv.record"
+  ]
+}

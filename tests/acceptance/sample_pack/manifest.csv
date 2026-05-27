@@ -1,0 +1,71 @@
+file,language,category,purpose,dependency,line_count_target
+python/01_data_transformation_customer_master.py,Python,Data Transformation,"customer master cleansing, joins, derived flags",standalone,>=100
+sas/01_data_transformation_customer_master.sas,SAS,Data Transformation,"customer master cleansing, joins, derived flags",standalone,>=100
+python/02_data_transformation_transaction_rollup.py,Python,Data Transformation,transaction aggregation and anomaly flags,standalone,>=100
+sas/02_data_transformation_transaction_rollup.sas,SAS,Data Transformation,transaction aggregation and anomaly flags,standalone,>=100
+python/03_ccar_pre_provision_net_revenue.py,Python,CCAR,PPNR scenario calculation,standalone,>=100
+sas/03_ccar_pre_provision_net_revenue.sas,SAS,CCAR,PPNR scenario calculation,standalone,>=100
+python/04_ccar_credit_loss_projection.py,Python,CCAR,credit loss projection by segment,standalone,>=100
+sas/04_ccar_credit_loss_projection.sas,SAS,CCAR,credit loss projection by segment,standalone,>=100
+python/05_ccar_capital_ratio_stress.py,Python,CCAR,stress capital ratio waterfall,standalone,>=100
+sas/05_ccar_capital_ratio_stress.sas,SAS,CCAR,stress capital ratio waterfall,standalone,>=100
+python/06_pd_logistic_retail.py,Python,PD,retail logistic PD scorecard,standalone,>=100
+sas/06_pd_logistic_retail.sas,SAS,PD,retail logistic PD scorecard,standalone,>=100
+python/07_pd_survival_corporate.py,Python,PD,corporate survival/hazard PD,standalone,>=100
+sas/07_pd_survival_corporate.sas,SAS,PD,corporate survival/hazard PD,standalone,>=100
+python/08_pd_transition_matrix.py,Python,PD,rating transition matrix PD,standalone,>=100
+sas/08_pd_transition_matrix.sas,SAS,PD,rating transition matrix PD,standalone,>=100
+python/09_lgd_collateral_haircut.py,Python,LGD,collateral haircut LGD,standalone,>=100
+sas/09_lgd_collateral_haircut.sas,SAS,LGD,collateral haircut LGD,standalone,>=100
+python/10_lgd_workout_recovery.py,Python,LGD,workout recovery LGD,standalone,>=100
+sas/10_lgd_workout_recovery.sas,SAS,LGD,workout recovery LGD,standalone,>=100
+python/11_ead_ccf_credit_card.py,Python,EAD,credit card credit conversion factor,standalone,>=100
+sas/11_ead_ccf_credit_card.sas,SAS,EAD,credit card credit conversion factor,standalone,>=100
+python/12_ead_commitment_drawdown.py,Python,EAD,commitment drawdown EAD,standalone,>=100
+sas/12_ead_commitment_drawdown.sas,SAS,EAD,commitment drawdown EAD,standalone,>=100
+python/13_deposit_balance_decay.py,Python,Deposit Model,non-maturity deposit balance decay,standalone,>=100
+sas/13_deposit_balance_decay.sas,SAS,Deposit Model,non-maturity deposit balance decay,standalone,>=100
+python/14_deposit_beta_rate_sensitivity.py,Python,Deposit Model,deposit beta and repricing sensitivity,standalone,>=100
+sas/14_deposit_beta_rate_sensitivity.sas,SAS,Deposit Model,deposit beta and repricing sensitivity,standalone,>=100
+python/15_loan_amortization_fixed_rate.py,Python,Loan Amortization,fixed rate amortization schedule,standalone,>=100
+sas/15_loan_amortization_fixed_rate.sas,SAS,Loan Amortization,fixed rate amortization schedule,standalone,>=100
+python/16_loan_amortization_variable_rate.py,Python,Loan Amortization,floating rate amortization schedule,standalone,>=100
+sas/16_loan_amortization_variable_rate.sas,SAS,Loan Amortization,floating rate amortization schedule,standalone,>=100
+python/17_ifrs9_pit_pd_macro_overlay.py,Python,IFRS9 PIT PD,macro overlay PIT PD,standalone,>=100
+sas/17_ifrs9_pit_pd_macro_overlay.sas,SAS,IFRS9 PIT PD,macro overlay PIT PD,standalone,>=100
+python/18_ifrs9_pit_pd_stage_migration.py,Python,IFRS9 PIT PD,stage migration PIT PD,standalone,>=100
+sas/18_ifrs9_pit_pd_stage_migration.sas,SAS,IFRS9 PIT PD,stage migration PIT PD,standalone,>=100
+python/19_ifrs9_lgd_downturn_overlay.py,Python,IFRS9 LGD,downturn LGD overlay,standalone,>=100
+sas/19_ifrs9_lgd_downturn_overlay.sas,SAS,IFRS9 LGD,downturn LGD overlay,standalone,>=100
+python/20_ifrs9_lgd_collateral_forecast.py,Python,IFRS9 LGD,collateral forecast LGD,standalone,>=100
+sas/20_ifrs9_lgd_collateral_forecast.sas,SAS,IFRS9 LGD,collateral forecast LGD,standalone,>=100
+python/21_data_transformation_regulatory_mapping.py,Python,Data Transformation,regulatory mapping and lineage,standalone,>=100
+sas/21_data_transformation_regulatory_mapping.sas,SAS,Data Transformation,regulatory mapping and lineage,standalone,>=100
+python/22_ccar_rwa_projection.py,Python,CCAR,RWA projection under stress,standalone,>=100
+sas/22_ccar_rwa_projection.sas,SAS,CCAR,RWA projection under stress,standalone,>=100
+python/23_pd_bureau_score_calibration.py,Python,PD,bureau-score calibration,standalone,>=100
+sas/23_pd_bureau_score_calibration.sas,SAS,PD,bureau-score calibration,standalone,>=100
+python/24_lgd_secured_unsecured_segmentation.py,Python,LGD,secured/unsecured segmentation,standalone,>=100
+sas/24_lgd_secured_unsecured_segmentation.sas,SAS,LGD,secured/unsecured segmentation,standalone,>=100
+python/25_ead_derivative_pfe.py,Python,EAD,potential future exposure proxy,standalone,>=100
+sas/25_ead_derivative_pfe.sas,SAS,EAD,potential future exposure proxy,standalone,>=100
+python/26_deposit_attrition_model.py,Python,Deposit Model,deposit attrition probability,standalone,>=100
+sas/26_deposit_attrition_model.sas,SAS,Deposit Model,deposit attrition probability,standalone,>=100
+python/27_loan_prepayment_model.py,Python,Loan Amortization,prepayment enhanced amortization,standalone,>=100
+sas/27_loan_prepayment_model.sas,SAS,Loan Amortization,prepayment enhanced amortization,standalone,>=100
+python/28_ifrs9_ecl_lifetime_pd.py,Python,IFRS9 PIT PD,lifetime PD term structure,standalone,>=100
+sas/28_ifrs9_ecl_lifetime_pd.sas,SAS,IFRS9 PIT PD,lifetime PD term structure,standalone,>=100
+python/29_ifrs9_ecl_stage2_calculation.py,Python,IFRS9 ECL,Stage 2 lifetime ECL,standalone,>=100
+sas/29_ifrs9_ecl_stage2_calculation.sas,SAS,IFRS9 ECL,Stage 2 lifetime ECL,standalone,>=100
+python/30_ifrs9_management_overlay.py,Python,IFRS9 ECL,management overlay and governance,standalone,>=100
+sas/30_ifrs9_management_overlay.sas,SAS,IFRS9 ECL,management overlay and governance,standalone,>=100
+chained_models/01_01_macro_scenario_generator.py,Python,Chained Model,Macro scenario generator; input=raw_source.csv; output=macro_variables.csv,raw_source.csv -> macro_variables.csv,>=100
+chained_models/02_02_ttc_pd_calibration.py,Python,Chained Model,TTC PD calibration; input=macro_variables.csv; output=ttc_pd_curve.csv,macro_variables.csv -> ttc_pd_curve.csv,>=100
+chained_models/03_03_pit_pd_overlay.py,Python,Chained Model,PIT PD overlay; input=ttc_pd_curve.csv; output=pit_pd_curve.csv,ttc_pd_curve.csv -> pit_pd_curve.csv,>=100
+chained_models/04_04_rating_migration_engine.py,Python,Chained Model,Rating migration engine; input=pit_pd_curve.csv; output=stage_migration.csv,pit_pd_curve.csv -> stage_migration.csv,>=100
+chained_models/05_05_collateral_value_forecast.py,Python,Chained Model,Collateral value forecast; input=stage_migration.csv; output=collateral_forecast.csv,stage_migration.csv -> collateral_forecast.csv,>=100
+chained_models/06_06_downturn_lgd_model.py,Python,Chained Model,Downturn LGD model; input=collateral_forecast.csv; output=downturn_lgd.csv,collateral_forecast.csv -> downturn_lgd.csv,>=100
+chained_models/07_07_credit_conversion_factor.py,Python,Chained Model,CCF/EAD model; input=downturn_lgd.csv; output=ead_projection.csv,downturn_lgd.csv -> ead_projection.csv,>=100
+chained_models/08_08_lifetime_ecl_engine.py,Python,Chained Model,Lifetime ECL engine; input=ead_projection.csv; output=lifetime_ecl.csv,ead_projection.csv -> lifetime_ecl.csv,>=100
+chained_models/09_09_capital_rwa_bridge.py,Python,Chained Model,Capital and RWA bridge; input=lifetime_ecl.csv; output=capital_rwa.csv,lifetime_ecl.csv -> capital_rwa.csv,>=100
+chained_models/10_10_management_overlay_report.py,Python,Chained Model,Management overlay report; input=capital_rwa.csv; output=final_overlay_report.csv,capital_rwa.csv -> final_overlay_report.csv,>=100

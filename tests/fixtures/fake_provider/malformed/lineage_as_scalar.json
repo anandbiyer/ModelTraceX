@@ -1,0 +1,6 @@
+{
+  "purpose": "Score customers; lineage returned as a single scalar string.",
+  "input_tables": [{"name": "sales.orders", "columns": ["cust_id", "amount"]}],
+  "output_tables": [{"name": "mart.scores", "columns": ["cust_id", "score"]}],
+  "lineage_rows": "sales.orders.amount -> mart.scores.score"
+}

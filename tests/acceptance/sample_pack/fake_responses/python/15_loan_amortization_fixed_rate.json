@@ -1,0 +1,13 @@
+{
+  "purpose": "fixed rate amortization schedule",
+  "input_tables": [
+    {
+      "name": "15_loan_amortization_fixed_rate_input"
+    }
+  ],
+  "output_tables": [
+    {
+      "name": "15_loan_amortization_fixed_rate_output"
+    }
+  ]
+}

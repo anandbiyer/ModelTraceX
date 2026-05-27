@@ -1,0 +1,26 @@
+{
+  "_doc": "v1 SAS golden master (S-9). `v1_facts` are exactly what v1's heuristic_scan_tables / SAS_*_REGEX would extract — the parity floor. `v2_improvements` are facts v2's richer adapter is expected to add. The Phase-1 SAS parity test (P1-T1) asserts v2 reproduces v1_facts AND adds v2_improvements.",
+  "language": "SAS",
+  "v1_facts": {
+    "inputs": ["lib.transactions", "work.base", "work.summary"],
+    "outputs": ["work.base", "work.summary", "report.final"],
+    "table_lineage": [
+      {"source": "lib.transactions", "target": "work.base"},
+      {"source": "work.base", "target": "work.summary"},
+      {"source": "work.summary", "target": "report.final"}
+    ]
+  },
+  "v2_improvements": {
+    "usages": [
+      {"element": "lib.transactions.cost", "usage_kind": "denominator"},
+      {"element": "lib.transactions.amount", "usage_kind": "range_filter"},
+      {"element": "work.base.region", "usage_kind": "aggregated"}
+    ],
+    "table_roles": {
+      "lib.transactions": "Source",
+      "work.base": "Intermediate",
+      "work.summary": "Intermediate",
+      "report.final": "Output"
+    }
+  }
+}

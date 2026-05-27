@@ -1,0 +1,13 @@
+{
+  "purpose": "credit card credit conversion factor",
+  "input_tables": [
+    {
+      "name": "11_ead_ccf_credit_card_input"
+    }
+  ],
+  "output_tables": [
+    {
+      "name": "11_ead_ccf_credit_card_output"
+    }
+  ]
+}

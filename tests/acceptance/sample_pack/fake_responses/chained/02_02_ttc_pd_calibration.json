@@ -1,0 +1,22 @@
+{
+  "purpose": "TTC PD calibration; consumes macro_variables.csv and produces ttc_pd_curve.csv.",
+  "input_tables": [
+    {
+      "name": "macro_variables.csv",
+      "columns": [
+        "record"
+      ]
+    }
+  ],
+  "output_tables": [
+    {
+      "name": "ttc_pd_curve.csv",
+      "columns": [
+        "record"
+      ]
+    }
+  ],
+  "lineage_rows": [
+    "macro_variables.csv.record -> ttc_pd_curve.csv.record"
+  ]
+}

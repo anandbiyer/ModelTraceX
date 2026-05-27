@@ -1,0 +1,11 @@
+{
+  "_doc": "DQ-coverage golden (schema-neutral). datepart()/to_datetime() signals a date parse.",
+  "usage_kind": "date_parse",
+  "dimensions": ["Validity"],
+  "severity": "Medium",
+  "part_c_statement": "Valid date; within plausible range",
+  "twins": {"SAS": "model.sas", "Python": "model.py"},
+  "expected_usages": [
+    {"element": "raw.transactions.txn_ts", "usage_kind": "date_parse", "languages": ["SAS", "Python"], "evidence_contains": "txn_ts"}
+  ]
+}

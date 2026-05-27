@@ -1,0 +1,22 @@
+{
+  "purpose": "PIT PD overlay; consumes ttc_pd_curve.csv and produces pit_pd_curve.csv.",
+  "input_tables": [
+    {
+      "name": "ttc_pd_curve.csv",
+      "columns": [
+        "record"
+      ]
+    }
+  ],
+  "output_tables": [
+    {
+      "name": "pit_pd_curve.csv",
+      "columns": [
+        "record"
+      ]
+    }
+  ],
+  "lineage_rows": [
+    "ttc_pd_curve.csv.record -> pit_pd_curve.csv.record"
+  ]
+}

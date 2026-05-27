@@ -1,0 +1,23 @@
+{
+  "_doc": "R language-coverage set (S-4): tree-sitter-r; read_*/write_* I/O and dplyr verbs.",
+  "language": "R",
+  "fixtures": {
+    "dplyr_pipeline.R": {
+      "inputs": ["orders.csv"],
+      "outputs": ["region_summary.csv"],
+      "usages": [
+        {"element": "amount", "usage_kind": "range_filter"},
+        {"element": "region", "usage_kind": "aggregated"}
+      ]
+    },
+    "model_fit.R": {
+      "inputs": ["accounts.csv", "risk.csv"],
+      "outputs": ["scored.csv"],
+      "usages": [
+        {"element": "cust_id", "usage_kind": "join_key"},
+        {"element": "limit", "usage_kind": "denominator"},
+        {"element": "score", "usage_kind": "output_measure"}
+      ]
+    }
+  }
+}

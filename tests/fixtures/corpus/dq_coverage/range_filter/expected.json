@@ -1,0 +1,11 @@
+{
+  "_doc": "DQ-coverage golden (schema-neutral). A numeric where/boolean filter signals a range check.",
+  "usage_kind": "range_filter",
+  "dimensions": ["Validity"],
+  "severity": "Medium",
+  "part_c_statement": "Value within expected domain/range",
+  "twins": {"SAS": "model.sas", "Python": "model.py"},
+  "expected_usages": [
+    {"element": "sales.orders.amount", "usage_kind": "range_filter", "languages": ["SAS", "Python"], "evidence_contains": "amount"}
+  ]
+}

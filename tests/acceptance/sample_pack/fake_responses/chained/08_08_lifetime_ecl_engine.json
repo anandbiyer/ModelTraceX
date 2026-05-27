@@ -1,0 +1,22 @@
+{
+  "purpose": "Lifetime ECL engine; consumes ead_projection.csv and produces lifetime_ecl.csv.",
+  "input_tables": [
+    {
+      "name": "ead_projection.csv",
+      "columns": [
+        "record"
+      ]
+    }
+  ],
+  "output_tables": [
+    {
+      "name": "lifetime_ecl.csv",
+      "columns": [
+        "record"
+      ]
+    }
+  ],
+  "lineage_rows": [
+    "ead_projection.csv.record -> lifetime_ecl.csv.record"
+  ]
+}

@@ -1,0 +1,8 @@
+"""LLM provider abstraction subpackage (SDD §6).
+
+Scaffold stub: structure only, no behaviour yet.
+"""
+
+from __future__ import annotations
+
+__all__: list[str] = []

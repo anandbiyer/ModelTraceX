@@ -1,0 +1,13 @@
+{
+  "purpose": "PPNR scenario calculation",
+  "input_tables": [
+    {
+      "name": "03_ccar_pre_provision_net_revenue_input"
+    }
+  ],
+  "output_tables": [
+    {
+      "name": "03_ccar_pre_provision_net_revenue_output"
+    }
+  ]
+}

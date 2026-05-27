@@ -1,0 +1,6 @@
+{
+  "purpose": "Code where the model could not identify any input tables.",
+  "input_tables": null,
+  "output_tables": [{"name": "mart.scores", "columns": ["cust_id", "score"]}],
+  "lineage_rows": []
+}

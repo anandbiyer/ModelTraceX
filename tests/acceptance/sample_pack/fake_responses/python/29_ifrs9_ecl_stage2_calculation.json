@@ -1,0 +1,13 @@
+{
+  "purpose": "Stage 2 lifetime ECL",
+  "input_tables": [
+    {
+      "name": "29_ifrs9_ecl_stage2_calculation_input"
+    }
+  ],
+  "output_tables": [
+    {
+      "name": "29_ifrs9_ecl_stage2_calculation_output"
+    }
+  ]
+}

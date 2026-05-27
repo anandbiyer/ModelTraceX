@@ -1,0 +1,6 @@
+{
+  "purpose": "A healthy sibling model in the same batch — proves the batch continues despite a peer failing.",
+  "input_tables": [{"name": "raw.feed", "columns": ["id", "value"]}],
+  "output_tables": [{"name": "work.clean", "columns": ["id", "value"]}],
+  "lineage_rows": [{"source_element": "raw.feed.value", "target_element": "work.clean.value"}]
+}

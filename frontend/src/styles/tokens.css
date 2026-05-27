@@ -1,0 +1,40 @@
+/*
+ * Shared MVA dark design system — single source of visual truth for the Modelis
+ * suite (SDD §13.4.0, rev 1.2). Tokens are extracted from the MVA prototype, not
+ * approximations. ModelTraceX must not introduce its own palette/fonts/component
+ * styles outside this system. Theme: dark.
+ */
+:root {
+  /* Backgrounds */
+  --bg: #07090f;          /* app base */
+  --panel: #0e1320;       /* cards / panels */
+  --elev: #131a2a;        /* elevated surfaces */
+  --sidebar: #0b0f1a;     /* sidebar */
+
+  /* Borders */
+  --border: #1c2538;
+  --border-soft: #161d2e;
+
+  /* Text */
+  --text: #e5e9f2;        /* primary */
+  --dim: #9ba6bd;         /* dim */
+  --muted: #5e6b86;       /* muted */
+
+  /* Accent (cyan): primary actions, brand, links, info, SAS */
+  --accent: #22d3ee;
+  --accent-soft: rgba(34, 211, 238, 0.12);
+
+  /* Semantic + translucent *-soft variants */
+  --green: #22c55e;  --green-soft: rgba(34, 197, 94, 0.12);   /* completeness, outputs lane */
+  --amber: #f59e0b;  --amber-soft: rgba(245, 158, 11, 0.12);  /* consistency, warn */
+  --red: #ef4444;    --red-soft: rgba(239, 68, 68, 0.12);     /* accuracy, high severity */
+  --purple: #a78bfa; --purple-soft: rgba(167, 139, 250, 0.12);/* uniqueness, R, models lane */
+
+  /* Elevation + radius */
+  --shadow: 0 8px 30px rgba(0, 0, 0, 0.45);
+  --r: 10px;     /* controls */
+  --r-lg: 14px;  /* cards */
+
+  /* Buttons */
+  --btn-primary-fg: #06121a; /* dark text on solid cyan */
+}

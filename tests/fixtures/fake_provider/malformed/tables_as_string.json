@@ -1,0 +1,6 @@
+{
+  "purpose": "Score customers from a single source table.",
+  "input_tables": "sales.orders",
+  "output_tables": [{"name": "mart.scores", "columns": ["cust_id", "score"]}],
+  "lineage_rows": []
+}

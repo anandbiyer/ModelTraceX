@@ -1,0 +1,11 @@
+{
+  "_doc": "DQ-coverage golden (schema-neutral). input(x, <numeric informat>) / .astype() signals a type cast (distinct from datepart()).",
+  "usage_kind": "type_cast",
+  "dimensions": ["Accuracy"],
+  "severity": "Medium",
+  "part_c_statement": "Format/type conformance",
+  "twins": {"SAS": "model.sas", "Python": "model.py"},
+  "expected_usages": [
+    {"element": "raw.feed.amount_str", "usage_kind": "type_cast", "languages": ["SAS", "Python"], "evidence_contains": "amount_str"}
+  ]
+}

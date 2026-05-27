@@ -1,0 +1,22 @@
+{
+  "purpose": "CCF/EAD model; consumes downturn_lgd.csv and produces ead_projection.csv.",
+  "input_tables": [
+    {
+      "name": "downturn_lgd.csv",
+      "columns": [
+        "record"
+      ]
+    }
+  ],
+  "output_tables": [
+    {
+      "name": "ead_projection.csv",
+      "columns": [
+        "record"
+      ]
+    }
+  ],
+  "lineage_rows": [
+    "downturn_lgd.csv.record -> ead_projection.csv.record"
+  ]
+}

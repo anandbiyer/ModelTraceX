@@ -1,0 +1,18 @@
+{
+  "_doc": "Multi-language pipeline (S-4). Four models in SAS/Python/R/VBA share staging tables; canonical table_id must stitch them into one end-to-end path across languages despite differing naming conventions (SAS libname.table vs file path vs worksheet).",
+  "models": [
+    {"label": "01_extract", "language": "SAS", "source_file": "01_extract.sas", "inputs": ["raw.event_log"], "outputs": ["staging.events"]},
+    {"label": "02_transform", "language": "Python", "source_file": "02_transform.py", "inputs": ["staging.events"], "outputs": ["staging.features"]},
+    {"label": "03_model", "language": "R", "source_file": "03_model.R", "inputs": ["staging.features"], "outputs": ["staging.scored"]},
+    {"label": "04_export", "language": "VBA", "source_file": "04_export.bas", "inputs": ["staging.scored"], "outputs": ["report.scores"]}
+  ],
+  "shared_tables": ["staging.events", "staging.features", "staging.scored"],
+  "expected_path": ["raw.event_log", "staging.events", "staging.features", "staging.scored", "report.scores"],
+  "table_roles": {
+    "raw.event_log": "Source",
+    "staging.events": "Intermediate",
+    "staging.features": "Intermediate",
+    "staging.scored": "Intermediate",
+    "report.scores": "Output"
+  }
+}

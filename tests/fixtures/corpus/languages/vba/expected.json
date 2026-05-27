@@ -1,0 +1,16 @@
+{
+  "_doc": "VBA language-coverage set (S-4): heuristic/regex adapter; worksheets act as tables.",
+  "language": "VBA",
+  "fixtures": {
+    "etl_macro.bas": {
+      "inputs": ["RawData"],
+      "outputs": ["KPI"],
+      "usages": [{"element": "RawData.col3", "usage_kind": "denominator"}]
+    },
+    "report_build.bas": {
+      "inputs": ["Orders"],
+      "outputs": ["Summary"],
+      "usages": [{"element": "Orders.col3", "usage_kind": "range_filter"}]
+    }
+  }
+}

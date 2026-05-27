@@ -1,0 +1,16 @@
+{
+  "_doc": "Ingestion-format set (S-6, FR-2.1/2.2). The SAME logical model is delivered six ways; every ingestion path must resolve to the one logical model below. Text variants (paste/single/multi) are committed; binary variants (zip/docx/pdf) are materialized by tests/tools/build_corpus.py. The PDF is intentionally LOSSY (carries only a code fragment) so ingestion must raise a lossy-extraction Issue.",
+  "logical_model": {
+    "language": "SAS",
+    "inputs": ["sales.orders"],
+    "outputs": ["mart.daily_totals", "mart.daily_summary"]
+  },
+  "variants": {
+    "paste": {"path": "paste/paste.txt", "committed": true},
+    "single": {"path": "single/model.sas", "committed": true},
+    "multi": {"paths": ["multi/part1.sas", "multi/part2.sas"], "committed": true},
+    "zip": {"path": "zip/model_project.zip", "generated_by": "build_corpus.py"},
+    "docx": {"path": "docx/model.docx", "generated_by": "build_corpus.py", "optional_dependency": "python-docx"},
+    "pdf": {"path": "pdf/model_lossy.pdf", "generated_by": "build_corpus.py", "lossy": true, "expected_issue": "lossy_pdf_extraction"}
+  }
+}

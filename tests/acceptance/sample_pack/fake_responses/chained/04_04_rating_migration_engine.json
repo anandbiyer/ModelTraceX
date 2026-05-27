@@ -1,0 +1,22 @@
+{
+  "purpose": "Rating migration engine; consumes pit_pd_curve.csv and produces stage_migration.csv.",
+  "input_tables": [
+    {
+      "name": "pit_pd_curve.csv",
+      "columns": [
+        "record"
+      ]
+    }
+  ],
+  "output_tables": [
+    {
+      "name": "stage_migration.csv",
+      "columns": [
+        "record"
+      ]
+    }
+  ],
+  "lineage_rows": [
+    "pit_pd_curve.csv.record -> stage_migration.csv.record"
+  ]
+}

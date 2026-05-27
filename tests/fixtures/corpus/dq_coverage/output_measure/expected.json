@@ -1,0 +1,11 @@
+{
+  "_doc": "DQ-coverage golden (schema-neutral). A measure column written to an output table signals an output-measure check. The 0.4/0.6 coefficients are literals, not denominators.",
+  "usage_kind": "output_measure",
+  "dimensions": ["Completeness"],
+  "severity": "Medium",
+  "part_c_statement": "Non-null; not all-zero/all-null",
+  "twins": {"SAS": "model.sas", "Python": "model.py"},
+  "expected_usages": [
+    {"element": "scoring.results.score", "usage_kind": "output_measure", "languages": ["SAS", "Python"], "evidence_contains": "score"}
+  ]
+}

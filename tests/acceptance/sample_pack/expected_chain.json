@@ -1,0 +1,59 @@
+{
+  "node_path": [
+    "raw_source.csv",
+    "macro_variables.csv",
+    "ttc_pd_curve.csv",
+    "pit_pd_curve.csv",
+    "stage_migration.csv",
+    "collateral_forecast.csv",
+    "downturn_lgd.csv",
+    "ead_projection.csv",
+    "lifetime_ecl.csv",
+    "capital_rwa.csv",
+    "final_overlay_report.csv"
+  ],
+  "edges": [
+    [
+      "raw_source.csv",
+      "macro_variables.csv"
+    ],
+    [
+      "macro_variables.csv",
+      "ttc_pd_curve.csv"
+    ],
+    [
+      "ttc_pd_curve.csv",
+      "pit_pd_curve.csv"
+    ],
+    [
+      "pit_pd_curve.csv",
+      "stage_migration.csv"
+    ],
+    [
+      "stage_migration.csv",
+      "collateral_forecast.csv"
+    ],
+    [
+      "collateral_forecast.csv",
+      "downturn_lgd.csv"
+    ],
+    [
+      "downturn_lgd.csv",
+      "ead_projection.csv"
+    ],
+    [
+      "ead_projection.csv",
+      "lifetime_ecl.csv"
+    ],
+    [
+      "lifetime_ecl.csv",
+      "capital_rwa.csv"
+    ],
+    [
+      "capital_rwa.csv",
+      "final_overlay_report.csv"
+    ]
+  ],
+  "source": "raw_source.csv",
+  "output": "final_overlay_report.csv"
+}

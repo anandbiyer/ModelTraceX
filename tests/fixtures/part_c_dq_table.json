@@ -1,0 +1,17 @@
+{
+  "_doc": "Canonical Part C DQ inference table (Spec Part C, SDD §4.1/§10). Single source of truth that (a) the corpus coverage test (S-13) asserts against and (b) the Phase-1 DQ heuristic mapper (P1-8) mirrors. Schema-neutral string values match the documented enums.",
+  "dimensions": ["Completeness", "Validity", "Uniqueness", "Consistency", "Accuracy", "Timeliness"],
+  "severities": ["High", "Medium", "Low"],
+  "rules": [
+    {"usage_kind": "denominator",       "dimension": "Validity",     "severity": "High",   "statement": "Must be non-null and non-zero"},
+    {"usage_kind": "join_key",          "dimension": "Uniqueness",   "severity": "High",   "statement": "Uniqueness on key; referential integrity to joined table", "also_dimension": "Consistency"},
+    {"usage_kind": "date_parse",        "dimension": "Validity",     "severity": "Medium", "statement": "Valid date; within plausible range"},
+    {"usage_kind": "range_filter",      "dimension": "Validity",     "severity": "Medium", "statement": "Value within expected domain/range"},
+    {"usage_kind": "aggregated",        "dimension": "Completeness", "severity": "Medium", "statement": "Completeness on the aggregation grain (no missing rows)"},
+    {"usage_kind": "type_cast",         "dimension": "Accuracy",     "severity": "Medium", "statement": "Format/type conformance"},
+    {"usage_kind": "equality_set",      "dimension": "Validity",     "severity": "Medium", "statement": "Domain/code-value validity (allowed values)"},
+    {"usage_kind": "output_measure",    "dimension": "Completeness", "severity": "Medium", "statement": "Non-null; not all-zero/all-null"},
+    {"usage_kind": "time_window",       "dimension": "Timeliness",   "severity": "Low",    "statement": "Timeliness / freshness expectation"},
+    {"usage_kind": "cross_system_join", "dimension": "Consistency",  "severity": "Medium", "statement": "Cross-system consistency"}
+  ]
+}

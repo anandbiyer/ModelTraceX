@@ -1,0 +1,18 @@
+{
+  "_doc": "Cross-model stitch fixture (S-3). work.staging is WRITTEN by m1 and READ by m2; a canonical table_id must collapse both references to a single Intermediate node so an end-to-end Source -> Intermediate -> Output path exists (FR-5.3, SDD §8.1).",
+  "models": [
+    {"label": "m1_build_staging", "language": "SAS", "source_file": "m1_build_staging.sas", "inputs": ["raw.customer_events"], "outputs": ["work.staging"]},
+    {"label": "m2_score", "language": "SAS", "source_file": "m2_score.sas", "inputs": ["work.staging"], "outputs": ["mart.customer_scores"]}
+  ],
+  "stitch": {
+    "shared_table": "work.staging",
+    "produced_by": ["m1_build_staging"],
+    "consumed_by": ["m2_score"]
+  },
+  "table_roles": {
+    "raw.customer_events": "Source",
+    "work.staging": "Intermediate",
+    "mart.customer_scores": "Output"
+  },
+  "expected_path": ["raw.customer_events", "work.staging", "mart.customer_scores"]
+}

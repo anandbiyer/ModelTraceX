@@ -1,0 +1,11 @@
+{
+  "_doc": "DQ-coverage golden (schema-neutral). A date column bounded by BETWEEN/.between signals a timeliness window (distinct from a numeric range_filter).",
+  "usage_kind": "time_window",
+  "dimensions": ["Timeliness"],
+  "severity": "Low",
+  "part_c_statement": "Timeliness / freshness expectation",
+  "twins": {"SAS": "model.sas", "Python": "model.py"},
+  "expected_usages": [
+    {"element": "events.activity.asof_date", "usage_kind": "time_window", "languages": ["SAS", "Python"], "evidence_contains": "asof_date"}
+  ]
+}

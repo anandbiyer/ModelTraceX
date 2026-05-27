@@ -1,0 +1,11 @@
+{
+  "_doc": "DQ-coverage golden (schema-neutral). The DQ engine must infer the Part C rule below from the declared usage_kind. enum values match SDD §4.1.",
+  "usage_kind": "denominator",
+  "dimensions": ["Validity"],
+  "severity": "High",
+  "part_c_statement": "Must be non-null and non-zero",
+  "twins": {"SAS": "model.sas", "Python": "model.py"},
+  "expected_usages": [
+    {"element": "hr.employees.headcount", "usage_kind": "denominator", "languages": ["SAS", "Python"], "evidence_contains": "/ headcount"}
+  ]
+}

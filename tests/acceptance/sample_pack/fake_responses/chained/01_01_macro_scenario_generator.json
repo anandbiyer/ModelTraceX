@@ -1,0 +1,22 @@
+{
+  "purpose": "Macro scenario generator; consumes raw_source.csv and produces macro_variables.csv.",
+  "input_tables": [
+    {
+      "name": "raw_source.csv",
+      "columns": [
+        "record"
+      ]
+    }
+  ],
+  "output_tables": [
+    {
+      "name": "macro_variables.csv",
+      "columns": [
+        "record"
+      ]
+    }
+  ],
+  "lineage_rows": [
+    "raw_source.csv.record -> macro_variables.csv.record"
+  ]
+}

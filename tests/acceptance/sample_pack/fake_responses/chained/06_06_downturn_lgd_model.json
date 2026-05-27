@@ -1,0 +1,22 @@
+{
+  "purpose": "Downturn LGD model; consumes collateral_forecast.csv and produces downturn_lgd.csv.",
+  "input_tables": [
+    {
+      "name": "collateral_forecast.csv",
+      "columns": [
+        "record"
+      ]
+    }
+  ],
+  "output_tables": [
+    {
+      "name": "downturn_lgd.csv",
+      "columns": [
+        "record"
+      ]
+    }
+  ],
+  "lineage_rows": [
+    "collateral_forecast.csv.record -> downturn_lgd.csv.record"
+  ]
+}

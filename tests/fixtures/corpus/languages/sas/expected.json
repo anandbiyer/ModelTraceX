@@ -1,0 +1,18 @@
+{
+  "_doc": "SAS language-coverage set (S-4): exercises detect / scan / split-points, including the macro-heavy case that defeats AST and the staging-reclassification case.",
+  "language": "SAS",
+  "fixtures": {
+    "macro_heavy.sas": {
+      "inputs": ["warehouse.sales"],
+      "macro_generated_outputs": true,
+      "output_template": "marts.sales_&rg",
+      "notes": "Dataset names emitted by the macro processor; static scan cannot fully resolve outputs — the LLM pass is expected to improve on this."
+    },
+    "staging_reclass.sas": {
+      "inputs": ["src.raw_feed"],
+      "outputs": ["report.summary"],
+      "table_roles": {"src.raw_feed": "Source", "work.staging": "Intermediate", "report.summary": "Output"},
+      "notes": "work.staging is written then read back in the same program -> reclassified Output -> Intermediate."
+    }
+  }
+}

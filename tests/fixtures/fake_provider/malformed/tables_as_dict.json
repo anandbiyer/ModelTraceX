@@ -1,0 +1,9 @@
+{
+  "purpose": "Score customers from orders and CRM attributes.",
+  "input_tables": {
+    "sales.orders": ["cust_id", "amount"],
+    "crm.customers": ["cust_id", "status"]
+  },
+  "output_tables": [{"name": "mart.scores", "columns": ["cust_id", "score"]}],
+  "lineage_rows": []
+}

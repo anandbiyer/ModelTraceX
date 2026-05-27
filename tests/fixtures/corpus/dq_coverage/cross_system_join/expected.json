@@ -1,0 +1,12 @@
+{
+  "_doc": "DQ-coverage golden (schema-neutral). A join whose two sides resolve to different source systems (two libnames / two connections) signals a cross-system consistency check.",
+  "usage_kind": "cross_system_join",
+  "dimensions": ["Consistency"],
+  "severity": "Medium",
+  "part_c_statement": "Cross-system consistency",
+  "twins": {"SAS": "model.sas", "Python": "model.py"},
+  "source_systems": ["oracle", "hadoop"],
+  "expected_usages": [
+    {"element": "cust_id", "usage_kind": "cross_system_join", "languages": ["SAS", "Python"], "evidence_contains": "cust_id"}
+  ]
+}

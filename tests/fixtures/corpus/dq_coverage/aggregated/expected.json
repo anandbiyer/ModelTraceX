@@ -1,0 +1,11 @@
+{
+  "_doc": "DQ-coverage golden (schema-neutral). PROC MEANS/SUMMARY BY and groupby().agg signal aggregation on a grain.",
+  "usage_kind": "aggregated",
+  "dimensions": ["Completeness"],
+  "severity": "Medium",
+  "part_c_statement": "Completeness on the aggregation grain (no missing rows)",
+  "twins": {"SAS": "model.sas", "Python": "model.py"},
+  "expected_usages": [
+    {"element": "sales.orders.region", "usage_kind": "aggregated", "languages": ["SAS", "Python"], "evidence_contains": "region"}
+  ]
+}

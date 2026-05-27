@@ -1,0 +1,21 @@
+{
+  "_doc": "Python language-coverage set (S-4): ast + tree-sitter; split_points on top-level defs.",
+  "language": "Python",
+  "fixtures": {
+    "etl_pipeline.py": {
+      "inputs": ["raw.csv"],
+      "outputs": ["region_summary.csv"],
+      "split_point_defs": ["load", "transform", "aggregate", "main"]
+    },
+    "feature_scoring.py": {
+      "inputs": ["customers.parquet", "transactions.csv"],
+      "outputs": ["scores.csv"],
+      "split_point_defs": ["build_features", "score"],
+      "usages": [
+        {"element": "cust_id", "usage_kind": "join_key"},
+        {"element": "tenure_months", "usage_kind": "denominator"},
+        {"element": "score", "usage_kind": "output_measure"}
+      ]
+    }
+  }
+}

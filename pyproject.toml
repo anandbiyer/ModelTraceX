@@ -1,0 +1,96 @@
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[project]
+name = "modeltracex"
+version = "2.0.0.dev0"
+description = "ModelTraceX v2 — multi-language model-code reviewer, lineage + DQ extractor (canonical-state pipeline)."
+readme = "README.md"
+requires-python = ">=3.11"
+license = { text = "Proprietary" }
+authors = [{ name = "ModelTraceX" }]
+
+# Core runtime deps — minimal so the package imports with only the canonical
+# state + config available. Heavier subsystems live in optional groups below
+# and are pulled in per phase (see ModelTraceX_v2_Implementation_Plan.md §2).
+dependencies = [
+    "pydantic>=2.7",
+    "pydantic-settings>=2.3",
+]
+
+[project.optional-dependencies]
+llm = ["anthropic>=0.40", "openai>=1.50"]
+parse = ["tree-sitter>=0.23"]
+lineage = ["networkx>=3.3", "graphviz>=0.20", "openlineage-python>=1.20"]
+export = ["python-docx>=1.1", "docxtpl>=0.18", "openpyxl>=3.1", "pypdf>=4.0"]
+api = ["fastapi>=0.115", "uvicorn>=0.30", "sse-starlette>=2.1"]
+store = ["SQLAlchemy>=2.0"]
+dev = [
+    "pytest>=8.0",
+    "pytest-asyncio>=0.24",
+    "pytest-cov>=5.0",
+    "ruff>=0.6",
+    "mypy>=1.11",
+]
+# Convenience meta-group for full local installs.
+all = [
+    "modeltracex[llm,parse,lineage,export,api,store]",
+]
+
+[project.scripts]
+modeltracex = "modeltracex.cli:main"
+
+[tool.hatch.build.targets.wheel]
+packages = ["modeltracex"]
+
+# --------------------------------------------------------------------------- #
+# Tooling
+# --------------------------------------------------------------------------- #
+[tool.ruff]
+line-length = 100
+target-version = "py311"
+src = ["modeltracex", "tests"]
+# Vendored, read-only v1 code (migration reference) is not ours to lint/format.
+# Synthetic corpus fixtures are sample code (some intentionally non-idiomatic or
+# malformed) — they are governed by the corpus tests, not our style rules.
+extend-exclude = ["reference", "tests/fixtures", "tests/acceptance/sample_pack", "model_tracex_sample_pack"]
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "UP", "B", "W", "C4", "SIM"]
+ignore = [
+    "E501",   # line length handled by the formatter
+    "UP042",  # standardize on the SDD §4.1 enum pattern `class X(str, Enum)`, not StrEnum
+]
+
+[tool.ruff.lint.isort]
+known-first-party = ["modeltracex"]
+
+[tool.mypy]
+python_version = "3.11"
+warn_unused_configs = true
+warn_redundant_casts = true
+warn_unused_ignores = true
+disallow_untyped_defs = true
+check_untyped_defs = true
+no_implicit_optional = true
+# Many optional-dependency libs ship without stubs; don't fail the gate on them.
+ignore_missing_imports = true
+files = ["modeltracex"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+asyncio_mode = "auto"
+# The sample-pack acceptance suite is opt-in (`pytest -m acceptance`); the default
+# fast CI gate excludes it. Live-provider tests within it self-skip on env vars.
+addopts = "-ra -m 'not acceptance'"
+markers = [
+    "acceptance: integration/acceptance over the financial sample pack (opt-in, excluded by default)",
+]
+
+[tool.coverage.run]
+source = ["modeltracex"]
+branch = true
+
+[tool.coverage.report]
+show_missing = true

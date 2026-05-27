@@ -1,0 +1,18 @@
+{
+  "_doc": "Partial-failure set (S-8, NFR-7). A two-model batch where one model's canned response (always_invalid.json = a bare scalar) can never satisfy the schema, so it stays invalid past every retry. Asserts the failing model is isolated and the batch still completes.",
+  "models": [
+    {
+      "label": "m_bad",
+      "response_file": "always_invalid.json",
+      "expected_status": "Failed",
+      "expected_issue": true,
+      "heuristic_only_retained": true
+    },
+    {
+      "label": "m_good",
+      "response_file": "valid_sibling.json",
+      "expected_status": "Analyzed"
+    }
+  ],
+  "batch_completes": true
+}

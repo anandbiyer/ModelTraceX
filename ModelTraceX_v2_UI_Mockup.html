@@ -1,0 +1,435 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>ModelTraceX v2 — UI mockup</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&family=IBM+Plex+Serif:wght@400;500&display=swap" rel="stylesheet">
+<style>
+:root{
+  --bg:#FAF9F6; --surface:#FFFFFF; --surface-2:#F4F2ED;
+  --text:#1C1E26; --text-2:#585C66; --text-3:#8C909A;
+  --border:rgba(28,30,38,.10); --border-2:rgba(28,30,38,.20);
+  --accent:#0F6E56; --accent-soft:#E1F5EE;
+  --navy:#1E2A3A;
+  --info:#185FA5; --info-soft:#E6F1FB;
+  --good:#3B6D11; --good-dot:#639922; --good-soft:#EAF3DE;
+  --warn:#854F0B; --warn-dot:#EF9F27; --warn-soft:#FAEEDA;
+  --bad:#A32D2D; --bad-dot:#E24B4A; --bad-soft:#FCEBEB;
+  --purple:#3C3489; --purple-soft:#EEEDFE;
+  --coral:#712B13; --coral-soft:#FAECE7;
+  --r:10px; --r-lg:14px;
+  --sans:'IBM Plex Sans',sans-serif; --mono:'IBM Plex Mono',monospace; --serif:'IBM Plex Serif',serif;
+}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--text);font-family:var(--sans);font-size:14px;line-height:1.55;-webkit-font-smoothing:antialiased}
+.app{max-width:1120px;margin:0 auto;padding:22px}
+code,.mono{font-family:var(--mono)}
+h1,h2,h3{font-weight:500;margin:0}
+a{color:var(--info);text-decoration:none}
+
+/* header */
+.head{display:flex;align-items:center;gap:14px;margin-bottom:18px}
+.brand{font-weight:600;font-size:18px;letter-spacing:-.01em}
+.brand b{color:var(--accent)}
+.v{font-family:var(--mono);font-size:11px;color:var(--text-3);border:1px solid var(--border);border-radius:6px;padding:1px 6px}
+.ctx{margin-left:auto;display:flex;align-items:center;gap:10px;font-size:12px;color:var(--text-2)}
+.prov-badge{display:inline-flex;align-items:center;gap:6px;background:var(--accent-soft);color:var(--accent);border-radius:8px;padding:4px 10px;font-weight:500}
+
+/* tabs */
+.tabs{display:flex;gap:2px;border-bottom:1px solid var(--border);margin-bottom:22px}
+.tab{padding:10px 16px;font-size:13.5px;color:var(--text-2);cursor:pointer;border-bottom:2px solid transparent;margin-bottom:-1px;user-select:none}
+.tab:hover{color:var(--text)}
+.tab.active{color:var(--text);font-weight:500;border-bottom-color:var(--accent)}
+
+/* panels */
+.panel{display:none;animation:fade .25s ease}
+.panel.active{display:block}
+@keyframes fade{from{opacity:0;transform:translateY(4px)}to{opacity:1;transform:none}}
+
+/* primitives */
+.card{background:var(--surface);border:1px solid var(--border);border-radius:var(--r-lg);padding:18px 20px}
+.muted{color:var(--text-2)}.hint{color:var(--text-3);font-size:12px}
+.row{display:flex;gap:16px}
+.btn{font-family:var(--sans);font-size:13px;background:var(--surface);border:1px solid var(--border-2);border-radius:var(--r);padding:8px 14px;cursor:pointer;color:var(--text);display:inline-flex;align-items:center;gap:6px}
+.btn:hover{background:var(--surface-2)}
+.btn.primary{background:var(--accent);border-color:var(--accent);color:#fff}
+.btn.primary:hover{filter:brightness(1.05)}
+.btn.sm{padding:5px 9px;font-size:12px}
+.badge{font-size:11px;font-weight:500;border-radius:6px;padding:2px 8px;display:inline-block}
+.b-sas{background:var(--accent-soft);color:var(--accent)}
+.b-py{background:var(--info-soft);color:var(--info)}
+.b-r{background:var(--purple-soft);color:var(--purple)}
+.b-vba{background:var(--coral-soft);color:var(--coral)}
+.pill{font-family:var(--mono);font-size:10.5px;font-weight:500;border:1px solid var(--border);border-radius:4px;padding:0 4px;background:var(--surface)}
+.dot{width:8px;height:8px;border-radius:50%;display:inline-block;vertical-align:1px}
+.dot.g{background:var(--good-dot)}.dot.a{background:var(--warn-dot)}.dot.r{background:var(--bad-dot)}
+.tag{font-size:10.5px;border-radius:5px;padding:1px 7px}
+.t-comp{background:var(--good-soft);color:var(--good)} .t-val{background:var(--info-soft);color:var(--info)}
+.t-uniq{background:var(--purple-soft);color:var(--purple)} .t-cons{background:var(--coral-soft);color:var(--coral)}
+.t-acc{background:var(--warn-soft);color:var(--warn)} .t-time{background:var(--surface-2);color:var(--text-2)}
+table{width:100%;border-collapse:collapse;font-size:13px}
+th{text-align:left;font-weight:500;color:var(--text-2);font-size:11.5px;text-transform:none;padding:8px 10px;border-bottom:1px solid var(--border)}
+td{padding:9px 10px;border-bottom:1px solid var(--border);vertical-align:top}
+tr:last-child td{border-bottom:none}
+.sec-title{font-family:var(--serif);font-size:15px;color:var(--text);margin:0 0 6px}
+.callout{font-size:11.5px;color:var(--text-2);background:var(--surface-2);border-radius:8px;padding:6px 10px;display:inline-flex;align-items:center;gap:8px;margin-top:6px}
+
+/* upload */
+.dropzone{border:1.5px dashed var(--border-2);border-radius:var(--r-lg);padding:34px;text-align:center;color:var(--text-2);background:repeating-linear-gradient(45deg,transparent,transparent 12px,rgba(15,110,86,.015) 12px,rgba(15,110,86,.015) 24px)}
+.dropzone .ic{font-size:30px;color:var(--accent);opacity:.7}
+.field{margin-bottom:14px}.field label{display:block;font-size:12px;color:var(--text-2);margin-bottom:5px}
+select,input[type=text]{width:100%;font-family:var(--sans);font-size:13px;padding:8px 10px;border:1px solid var(--border-2);border-radius:var(--r);background:var(--surface);color:var(--text)}
+.seg{display:inline-flex;border:1px solid var(--border-2);border-radius:var(--r);overflow:hidden}
+.seg span{padding:7px 14px;font-size:12px;color:var(--text-2);cursor:pointer}
+.seg span.on{background:var(--surface-2);color:var(--text);font-weight:500}
+
+/* lineage */
+.toolbar{display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:10px}
+.legend{display:flex;align-items:center;gap:14px;flex-wrap:wrap;background:var(--surface-2);border-radius:var(--r);padding:8px 12px;font-size:11.5px;color:var(--text-2);margin-bottom:16px}
+.canvas{border:1px solid var(--border);border-radius:var(--r-lg);padding:20px 16px;background:var(--surface);min-height:300px}
+.lanes{display:flex;align-items:center;justify-content:space-between;gap:6px}
+.lane{flex:1;display:flex;flex-direction:column;gap:10px}
+.lane .lh{text-align:center;font-size:11px;color:var(--text-3);letter-spacing:.02em}
+.node{border-radius:var(--r);padding:10px;text-align:center}
+.node .nm{font-family:var(--mono);font-size:12.5px;font-weight:500}
+.n-src{background:var(--accent-soft)} .n-src .nm{color:var(--accent)}
+.n-mdl{background:var(--purple-soft)} .n-mdl .nm{color:var(--purple)}
+.n-out{background:var(--coral-soft)} .n-out .nm{color:var(--coral)}
+.node.sel{outline:2px solid var(--info);outline-offset:1px}
+.conn{display:flex;flex-direction:column;align-items:center;justify-content:center;color:var(--text-3)}
+.conn .arr{font-size:18px}
+.edge-lbl{font-size:10.5px;color:var(--info);background:var(--info-soft);border-radius:5px;padding:1px 6px;margin-top:3px}
+.inspector{width:250px;flex-shrink:0}
+.kv{font-size:12px;color:var(--text-2);line-height:1.9}
+
+/* chat */
+.thread{display:flex;flex-direction:column;gap:14px;max-width:760px}
+.msg{display:flex;gap:10px}
+.av{width:28px;height:28px;border-radius:7px;flex-shrink:0;display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:600}
+.av.u{background:var(--navy);color:#fff} .av.a{background:var(--accent-soft);color:var(--accent)}
+.bubble{background:var(--surface);border:1px solid var(--border);border-radius:var(--r-lg);padding:12px 14px;font-size:13.5px}
+.bubble.u{background:var(--surface-2);border-color:transparent}
+.diff{font-family:var(--mono);font-size:12px;border:1px solid var(--border);border-radius:var(--r);overflow:hidden;margin:10px 0}
+.diff .d{padding:6px 10px;border-bottom:1px solid var(--border)}
+.diff .d:last-child{border-bottom:none}
+.diff .old{background:var(--bad-soft);color:var(--bad)} .diff .new{background:var(--good-soft);color:var(--good)}
+.composer{display:flex;gap:8px;margin-top:18px;max-width:760px}
+.composer input{flex:1}
+.flex-between{display:flex;align-items:center;justify-content:space-between}
+.metrics{display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin-bottom:18px}
+.metric{background:var(--surface-2);border-radius:var(--r);padding:12px 14px}
+.metric .lbl{font-size:11.5px;color:var(--text-2)} .metric .val{font-size:22px;font-weight:500;margin-top:2px}
+.chips{display:flex;gap:6px;flex-wrap:wrap;margin-bottom:14px}
+.chip{font-size:11.5px;border:1px solid var(--border);border-radius:7px;padding:4px 10px;color:var(--text-2);cursor:pointer}
+.chip.on{background:var(--accent-soft);border-color:var(--accent);color:var(--accent)}
+.evidence{font-family:var(--mono);font-size:11px;background:var(--surface-2);border-radius:6px;padding:6px 8px;color:var(--text-2);margin-top:4px}
+.actions{display:flex;gap:5px}
+.ico-btn{border:1px solid var(--border-2);background:var(--surface);border-radius:7px;width:28px;height:28px;display:inline-flex;align-items:center;justify-content:center;cursor:pointer;font-size:14px}
+.ico-btn.good{color:var(--good)} .ico-btn.bad{color:var(--bad)}
+.disclaimer{font-size:11px;color:var(--text-3);text-align:center;margin-top:26px}
+</style>
+</head>
+<body>
+<div class="app">
+
+  <div class="head">
+    <span class="brand">Model<b>Trace</b>X</span><span class="v">v2</span>
+    <div class="ctx">
+      <span>Run <span class="mono">#A7F3</span> · 4 models · SAS · Python · R · VBA</span>
+      <span class="prov-badge"><span class="dot" style="background:var(--accent)"></span> Claude · local mode</span>
+    </div>
+  </div>
+
+  <div class="tabs">
+    <div class="tab active" data-target="upload">Upload</div>
+    <div class="tab" data-target="review">Review</div>
+    <div class="tab" data-target="lineage">Lineage</div>
+    <div class="tab" data-target="dq">Data quality</div>
+    <div class="tab" data-target="chat">Chat</div>
+  </div>
+
+  <!-- ============ UPLOAD ============ -->
+  <div class="panel active" id="upload">
+    <div class="row" style="align-items:flex-start">
+      <div style="flex:1;min-width:0">
+        <div class="dropzone" style="margin-bottom:16px">
+          <div class="ic">⬍</div>
+          <div style="font-weight:500;margin-top:6px">Drop scripts or a zipped project here</div>
+          <div class="hint" style="margin-top:4px">.sas · .py · .R · .bas/.vba · .sql · .docx · .pdf · .zip &nbsp;—&nbsp; or <a href="#">browse</a> / <a href="#">paste code</a></div>
+        </div>
+
+        <div class="card" style="padding:0;overflow:hidden">
+          <div class="flex-between" style="padding:12px 16px;border-bottom:1px solid var(--border)">
+            <span style="font-weight:500">4 files → 4 models</span>
+            <span class="hint">language auto-detected · click a badge to override · select rows to merge</span>
+          </div>
+          <table>
+            <thead><tr><th style="width:34px"></th><th>File</th><th>Language</th><th>Model</th><th>Detected</th></tr></thead>
+            <tbody>
+              <tr><td><input type="checkbox"></td><td class="mono">customer_scoring.sas</td><td><span class="badge b-sas">SAS</span></td><td class="muted">scoring</td><td><span class="pill">H</span> ext + content</td></tr>
+              <tr><td><input type="checkbox"></td><td class="mono">txn_features.py</td><td><span class="badge b-py">Python</span></td><td class="muted">features</td><td><span class="pill">H</span> ext + AST</td></tr>
+              <tr><td><input type="checkbox"></td><td class="mono">risk_bands.R</td><td><span class="badge b-r">R</span></td><td class="muted">bands</td><td><span class="pill">H</span> ext + AST</td></tr>
+              <tr><td><input type="checkbox"></td><td class="mono">legacy_alloc.bas</td><td><span class="badge b-vba">VBA</span></td><td class="muted">alloc</td><td><span class="pill">H</span> content</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      <div class="card" style="width:300px;flex-shrink:0">
+        <h3 style="font-size:14px;margin-bottom:14px">Analysis settings</h3>
+        <div class="field"><label>LLM provider / model</label>
+          <select><option>Claude (local, no retention)</option><option>Claude — Anthropic API</option><option>Azure OpenAI</option><option>OpenAI</option></select>
+        </div>
+        <div class="field"><label>Data handling</label>
+          <div class="seg"><span class="on">Local / no retention</span><span>Cloud</span></div>
+        </div>
+        <div class="field"><label>Lineage detail</label>
+          <div class="seg"><span>Table</span><span class="on">Column</span></div>
+        </div>
+        <div class="field"><label>Concurrency</label>
+          <input type="text" value="4 models in parallel" readonly>
+        </div>
+        <button class="btn primary" style="width:100%;justify-content:center;margin-top:6px">Analyze 4 models</button>
+        <div class="hint" style="text-align:center;margin-top:8px">est. ~38k tokens · ~$0.12</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ============ REVIEW ============ -->
+  <div class="panel" id="review">
+    <div class="row" style="align-items:flex-start">
+      <div class="card" style="width:230px;flex-shrink:0;padding:8px">
+        <div style="padding:8px 10px;font-size:11.5px;color:var(--text-3)">Project</div>
+        <div style="padding:8px 10px;border-radius:8px;font-size:13px;cursor:pointer">Project summary</div>
+        <div style="padding:8px 10px;font-size:11.5px;color:var(--text-3);margin-top:4px">Models</div>
+        <div style="padding:8px 10px;border-radius:8px;background:var(--surface-2);font-size:13px;font-weight:500;cursor:pointer"><span class="dot g"></span> scoring <span class="hint">· high</span></div>
+        <div style="padding:8px 10px;border-radius:8px;font-size:13px;cursor:pointer"><span class="dot g"></span> features <span class="hint">· high</span></div>
+        <div style="padding:8px 10px;border-radius:8px;font-size:13px;cursor:pointer"><span class="dot a"></span> bands <span class="hint">· medium</span></div>
+        <div style="padding:8px 10px;border-radius:8px;font-size:13px;cursor:pointer"><span class="dot r"></span> alloc <span class="hint">· partial</span></div>
+      </div>
+
+      <div class="card" style="flex:1;min-width:0">
+        <div class="flex-between" style="margin-bottom:14px">
+          <div><h2 style="font-size:18px">scoring</h2><span class="hint">SAS · customer_scoring.sas · standard model documentation</span></div>
+          <button class="btn sm">↓ Download DOCX</button>
+        </div>
+
+        <div style="margin-bottom:16px">
+          <div class="sec-title">1 · Executive summary</div>
+          <p class="muted" style="margin:0">Scores active customers for credit-risk banding by joining the customer master to aggregated transaction features, applying a logistic scorecard, and writing one scored row per customer.</p>
+          <span class="callout"><span class="pill">E</span> LLM-extracted · confidence high</span>
+        </div>
+
+        <div style="margin-bottom:16px">
+          <div class="sec-title">4 · Data inputs</div>
+          <table style="margin-top:6px">
+            <thead><tr><th>Table</th><th>Source system</th><th>Grain</th><th>Key attributes</th></tr></thead>
+            <tbody>
+              <tr><td class="mono">raw.cust</td><td>Customer MDM</td><td>1/customer</td><td class="mono muted">cust_id, segment, open_dt</td></tr>
+              <tr><td class="mono">raw.txn</td><td>Core banking</td><td>1/txn</td><td class="mono muted">cust_id, amt, txn_dt</td></tr>
+            </tbody>
+          </table>
+        </div>
+
+        <div style="margin-bottom:16px">
+          <div class="sec-title">7 · Calculation logic</div>
+          <p class="muted" style="margin:0"><span class="mono">score</span> = logistic(β·features); <span class="mono">band</span> = cut(score, thresholds). Thresholds hard-coded — flagged as an assumption.</p>
+          <span class="callout"><span class="pill">E</span> LLM-extracted · <span class="dot a"></span> confidence medium</span>
+        </div>
+
+        <div>
+          <div class="sec-title">10 · Data quality considerations</div>
+          <p class="muted" style="margin:0">3 candidate rules inferred — see the Data quality tab. Highest severity: <span class="mono">score</span> non-null &amp; in range 0–1 (validity, high).</p>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ============ LINEAGE ============ -->
+  <div class="panel" id="lineage">
+    <div class="toolbar">
+      <select style="width:auto"><option>Scope: whole project</option><option>Model: scoring</option></select>
+      <div class="seg"><span>Table</span><span class="on">Column</span></div>
+      <input type="text" placeholder="Find a table or column…" style="flex:1;min-width:150px">
+      <button class="btn">↓ Export</button>
+    </div>
+    <div class="legend">
+      <span class="chip on">Model: all</span><span class="chip">System: all</span><span class="chip">Low-confidence only</span>
+      <span style="margin-left:auto"><span class="pill">H</span> heuristic &nbsp; <span class="pill">E</span> LLM &nbsp;·&nbsp; <span class="dot g"></span> high <span class="dot a"></span> med <span class="dot r"></span> low</span>
+    </div>
+
+    <div class="row" style="align-items:flex-start">
+      <div class="canvas" style="flex:1;min-width:0">
+        <div class="lanes">
+          <div class="lane">
+            <div class="lh">Sources</div>
+            <div class="node n-src"><div class="nm">raw.cust</div><div style="margin-top:5px"><span class="pill">H</span> <span class="dot g"></span></div></div>
+            <div class="node n-src"><div class="nm">raw.txn</div><div style="margin-top:5px"><span class="pill">H</span> <span class="dot g"></span></div></div>
+          </div>
+          <div class="conn"><span class="arr">→</span><span class="edge-lbl">join</span></div>
+          <div class="lane" style="justify-content:center">
+            <div class="lh">Models</div>
+            <div class="node n-mdl"><div class="nm">scoring</div><div style="margin-top:5px"><span class="pill">E</span> <span class="dot a"></span></div></div>
+          </div>
+          <div class="conn"><span class="arr">→</span><span class="edge-lbl">derive</span></div>
+          <div class="lane" style="justify-content:center">
+            <div class="lh">Outputs</div>
+            <div class="node n-out sel"><div class="nm">out.score</div><div style="margin-top:5px"><span class="pill">E</span> <span class="dot g"></span></div></div>
+          </div>
+        </div>
+        <div class="flex-between" style="margin-top:18px;padding-top:12px;border-top:1px solid var(--border);font-size:11.5px;color:var(--text-3)">
+          <span>4 tables · 18 column edges</span><span>⚠ 3 edges pending review</span>
+        </div>
+      </div>
+
+      <div class="card inspector">
+        <div class="flex-between"><span style="font-weight:500" class="mono">out.score</span><span class="tag t-cons">Output</span></div>
+        <div class="kv" style="margin:8px 0 12px">Source system: Scoring DB<br>Grain: 1 row / customer<br>Provenance: <span class="pill">E</span> · confidence high</div>
+        <div class="hint" style="margin-bottom:4px">Columns</div>
+        <div style="font-size:12px;line-height:1.9;margin-bottom:12px">
+          <div><span class="mono">cust_id</span> <span class="hint">key · join</span></div>
+          <div><span class="mono">score</span> <span class="hint">derived · calc</span></div>
+          <div><span class="mono">band</span> <span class="hint">attribute</span></div>
+        </div>
+        <div class="hint" style="margin-bottom:6px">Inferred DQ rules</div>
+        <div style="background:var(--surface-2);border-radius:8px;padding:7px 9px;font-size:12px;margin-bottom:6px"><span class="mono">score</span> non-null, 0–1<div style="margin-top:3px"><span class="tag t-val">validity</span> <span class="hint">high</span></div></div>
+        <div style="background:var(--surface-2);border-radius:8px;padding:7px 9px;font-size:12px;margin-bottom:14px"><span class="mono">cust_id</span> unique<div style="margin-top:3px"><span class="tag t-uniq">uniqueness</span> <span class="hint">high</span></div></div>
+        <div class="actions"><button class="btn sm" style="flex:1;justify-content:center;color:var(--good);border-color:var(--good)">✓ Accept</button><button class="btn sm" style="flex:1;justify-content:center;color:var(--bad);border-color:var(--bad)">✕ Reject</button><button class="btn sm">✎</button></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ============ DATA QUALITY ============ -->
+  <div class="panel" id="dq">
+    <div class="metrics">
+      <div class="metric"><div class="lbl">Candidate rules</div><div class="val">42</div></div>
+      <div class="metric"><div class="lbl">High severity</div><div class="val" style="color:var(--bad)">9</div></div>
+      <div class="metric"><div class="lbl">Pending review</div><div class="val" style="color:var(--warn)">15</div></div>
+      <div class="metric"><div class="lbl">Accepted</div><div class="val" style="color:var(--good)">27</div></div>
+    </div>
+    <div class="chips">
+      <span class="chip on">All dimensions</span><span class="chip">Completeness</span><span class="chip">Validity</span><span class="chip">Uniqueness</span><span class="chip">Consistency</span><span class="chip">Accuracy</span><span class="chip">Timeliness</span>
+      <span class="chip" style="margin-left:auto">High severity</span><span class="chip">Low-confidence</span>
+    </div>
+
+    <div class="card" style="padding:0;overflow:hidden">
+      <table>
+        <thead><tr><th>Element</th><th>Dimension</th><th>Rule</th><th>Sev</th><th>Src</th><th>Conf</th><th style="text-align:right">Review</th></tr></thead>
+        <tbody>
+          <tr>
+            <td class="mono">out.score.score</td><td><span class="tag t-val">validity</span></td>
+            <td>non-null &amp; within range 0–1<div class="evidence">score = logistic(...) ; if score &gt; 0.8 then band='A'</div></td>
+            <td><span class="tag" style="background:var(--bad-soft);color:var(--bad)">high</span></td><td><span class="pill">E</span></td><td><span class="dot g"></span></td>
+            <td><div class="actions" style="justify-content:flex-end"><span class="ico-btn good">✓</span><span class="ico-btn bad">✕</span></div></td>
+          </tr>
+          <tr>
+            <td class="mono">raw.cust.cust_id</td><td><span class="tag t-uniq">uniqueness</span></td>
+            <td>unique key; referential integrity to raw.txn</td>
+            <td><span class="tag" style="background:var(--bad-soft);color:var(--bad)">high</span></td><td><span class="pill">H</span></td><td><span class="dot g"></span></td>
+            <td><div class="actions" style="justify-content:flex-end"><span class="ico-btn good">✓</span><span class="ico-btn bad">✕</span></div></td>
+          </tr>
+          <tr>
+            <td class="mono">raw.txn.amt</td><td><span class="tag t-val">validity</span></td>
+            <td>non-zero (used as divisor in ratio)</td>
+            <td><span class="tag" style="background:var(--warn-soft);color:var(--warn)">med</span></td><td><span class="pill">H</span></td><td><span class="dot g"></span></td>
+            <td><div class="actions" style="justify-content:flex-end"><span class="ico-btn good">✓</span><span class="ico-btn bad">✕</span></div></td>
+          </tr>
+          <tr>
+            <td class="mono">raw.txn.txn_dt</td><td><span class="tag t-acc">accuracy</span></td>
+            <td>valid date; within plausible range</td>
+            <td><span class="tag" style="background:var(--warn-soft);color:var(--warn)">med</span></td><td><span class="pill">E</span></td><td><span class="dot a"></span></td>
+            <td><div class="actions" style="justify-content:flex-end"><span class="ico-btn good">✓</span><span class="ico-btn bad">✕</span></div></td>
+          </tr>
+          <tr>
+            <td class="mono">out.score.band</td><td><span class="tag t-val">validity</span></td>
+            <td>allowed values {A,B,C,D}</td>
+            <td><span class="tag t-time">low</span></td><td><span class="pill">E</span></td><td><span class="dot a"></span></td>
+            <td><div class="actions" style="justify-content:flex-end"><span class="ico-btn good">✓</span><span class="ico-btn bad">✕</span></div></td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+    <div class="hint" style="margin-top:10px">Each rule keeps the code evidence that triggered it and a suggested severity — accept / reject / edit persists into the structured state.</div>
+  </div>
+
+  <!-- ============ CHAT ============ -->
+  <div class="panel" id="chat">
+    <div class="thread">
+      <div class="msg" style="flex-direction:row-reverse">
+        <div class="av u">AK</div>
+        <div class="bubble u">Treat the staging tables (<span class="mono">stg_*</span>) as intermediate, not outputs.</div>
+      </div>
+
+      <div class="msg">
+        <div class="av a">◆</div>
+        <div class="bubble">
+          Two tables match <span class="mono">stg_*</span>. I'll change their role in the structured state:
+          <div class="diff">
+            <div class="d old">− stg_cust · role: Output</div>
+            <div class="d new">+ stg_cust · role: Intermediate</div>
+            <div class="d old">− stg_txn · role: Output</div>
+            <div class="d new">+ stg_txn · role: Intermediate</div>
+          </div>
+          This affects the lineage graph for <b>2 models</b> (scoring, features).
+          <div style="display:flex;gap:8px;margin-top:10px">
+            <button class="btn sm primary">Apply &amp; re-run affected (2)</button>
+            <button class="btn sm">Apply without re-run</button>
+          </div>
+        </div>
+      </div>
+
+      <div class="msg" style="flex-direction:row-reverse">
+        <div class="av u">AK</div>
+        <div class="bubble u">Raise lineage to column level for the scoring model only.</div>
+      </div>
+
+      <div class="msg">
+        <div class="av a">◆</div>
+        <div class="bubble">
+          Scoped parameter change:
+          <div class="diff"><div class="d old">− scoring · lineage_detail: table</div><div class="d new">+ scoring · lineage_detail: column</div></div>
+          Only <span class="mono">scoring</span> will re-run; other models are untouched.
+          <div style="display:flex;gap:8px;margin-top:10px">
+            <button class="btn sm primary">Re-run scoring</button>
+            <button class="btn sm">Cancel</button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="composer">
+      <input type="text" placeholder="Ask to change a parameter or re-run — e.g. &quot;merge alloc into scoring&quot;, &quot;exclude PII columns&quot;…">
+      <button class="btn primary">Send</button>
+    </div>
+    <div class="hint" style="max-width:760px;margin-top:8px">Chat edits the structured model state, not free text. Every request is shown as a concrete change you confirm, and re-runs are targeted to only the affected models.</div>
+  </div>
+
+  <div class="disclaimer">ModelTraceX v2 — interactive UI mockup. Representative data; tabs are clickable. Layout intent, not final proportions.</div>
+</div>
+
+<script>
+document.querySelectorAll('.tab').forEach(function(t){
+  t.addEventListener('click',function(){
+    document.querySelectorAll('.tab').forEach(function(x){x.classList.remove('active')});
+    document.querySelectorAll('.panel').forEach(function(p){p.classList.remove('active')});
+    t.classList.add('active');
+    document.getElementById(t.dataset.target).classList.add('active');
+  });
+});
+document.querySelectorAll('.seg').forEach(function(s){
+  s.querySelectorAll('span').forEach(function(opt){
+    opt.addEventListener('click',function(){
+      s.querySelectorAll('span').forEach(function(o){o.classList.remove('on')});
+      opt.classList.add('on');
+    });
+  });
+});
+document.querySelectorAll('.chip').forEach(function(c){
+  c.addEventListener('click',function(){c.classList.toggle('on')});
+});
+</script>
+</body>
+</html>

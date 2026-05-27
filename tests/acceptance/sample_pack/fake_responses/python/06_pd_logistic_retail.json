@@ -1,0 +1,13 @@
+{
+  "purpose": "retail logistic PD scorecard",
+  "input_tables": [
+    {
+      "name": "06_pd_logistic_retail_input"
+    }
+  ],
+  "output_tables": [
+    {
+      "name": "06_pd_logistic_retail_output"
+    }
+  ]
+}

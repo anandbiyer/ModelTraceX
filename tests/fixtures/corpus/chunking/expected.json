@@ -1,0 +1,28 @@
+{
+  "_doc": "Chunking idempotence golden (S-7). The chunked and unchunked runs must both produce exactly this table set and these table-level edges. `expected_split_points_min` is a lower bound (one per DATA/PROC boundary) so the test stays robust to minor chunker tuning.",
+  "language": "SAS",
+  "source_file": "oversized_etl.sas",
+  "expected_split_points_min": 12,
+  "source_inputs": ["raw.source"],
+  "final_outputs": ["report.final"],
+  "all_tables": [
+    "raw.source",
+    "work.stg_00", "work.stg_01", "work.stg_02", "work.stg_03", "work.stg_04",
+    "work.stg_05", "work.stg_06", "work.stg_07", "work.stg_08", "work.stg_09",
+    "work.rollup", "report.final"
+  ],
+  "table_edges": [
+    {"source": "raw.source", "target": "work.stg_00"},
+    {"source": "work.stg_00", "target": "work.stg_01"},
+    {"source": "work.stg_01", "target": "work.stg_02"},
+    {"source": "work.stg_02", "target": "work.stg_03"},
+    {"source": "work.stg_03", "target": "work.stg_04"},
+    {"source": "work.stg_04", "target": "work.stg_05"},
+    {"source": "work.stg_05", "target": "work.stg_06"},
+    {"source": "work.stg_06", "target": "work.stg_07"},
+    {"source": "work.stg_07", "target": "work.stg_08"},
+    {"source": "work.stg_08", "target": "work.stg_09"},
+    {"source": "work.stg_09", "target": "work.rollup"},
+    {"source": "work.rollup", "target": "report.final"}
+  ]
+}

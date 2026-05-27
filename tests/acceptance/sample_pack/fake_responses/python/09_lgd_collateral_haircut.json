@@ -1,0 +1,13 @@
+{
+  "purpose": "collateral haircut LGD",
+  "input_tables": [
+    {
+      "name": "09_lgd_collateral_haircut_input"
+    }
+  ],
+  "output_tables": [
+    {
+      "name": "09_lgd_collateral_haircut_output"
+    }
+  ]
+}

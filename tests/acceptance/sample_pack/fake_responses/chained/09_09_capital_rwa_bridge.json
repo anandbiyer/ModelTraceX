@@ -1,0 +1,22 @@
+{
+  "purpose": "Capital and RWA bridge; consumes lifetime_ecl.csv and produces capital_rwa.csv.",
+  "input_tables": [
+    {
+      "name": "lifetime_ecl.csv",
+      "columns": [
+        "record"
+      ]
+    }
+  ],
+  "output_tables": [
+    {
+      "name": "capital_rwa.csv",
+      "columns": [
+        "record"
+      ]
+    }
+  ],
+  "lineage_rows": [
+    "lifetime_ecl.csv.record -> capital_rwa.csv.record"
+  ]
+}

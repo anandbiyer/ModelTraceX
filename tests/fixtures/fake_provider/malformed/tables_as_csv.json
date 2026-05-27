@@ -1,0 +1,6 @@
+{
+  "purpose": "Score customers from several joined sources.",
+  "input_tables": "sales.orders, crm.customers, raw.feed",
+  "output_tables": [{"name": "mart.scores", "columns": ["cust_id", "score"]}],
+  "lineage_rows": []
+}

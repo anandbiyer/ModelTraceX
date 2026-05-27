@@ -1,0 +1,22 @@
+{
+  "purpose": "Collateral value forecast; consumes stage_migration.csv and produces collateral_forecast.csv.",
+  "input_tables": [
+    {
+      "name": "stage_migration.csv",
+      "columns": [
+        "record"
+      ]
+    }
+  ],
+  "output_tables": [
+    {
+      "name": "collateral_forecast.csv",
+      "columns": [
+        "record"
+      ]
+    }
+  ],
+  "lineage_rows": [
+    "stage_migration.csv.record -> collateral_forecast.csv.record"
+  ]
+}

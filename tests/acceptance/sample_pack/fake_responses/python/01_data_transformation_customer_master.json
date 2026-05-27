@@ -1,0 +1,13 @@
+{
+  "purpose": "customer master cleansing, joins, derived flags",
+  "input_tables": [
+    {
+      "name": "01_data_transformation_customer_master_input"
+    }
+  ],
+  "output_tables": [
+    {
+      "name": "01_data_transformation_customer_master_output"
+    }
+  ]
+}

@@ -1,0 +1,13 @@
+{
+  "purpose": "non-maturity deposit balance decay",
+  "input_tables": [
+    {
+      "name": "13_deposit_balance_decay_input"
+    }
+  ],
+  "output_tables": [
+    {
+      "name": "13_deposit_balance_decay_output"
+    }
+  ]
+}

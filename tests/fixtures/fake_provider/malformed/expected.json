@@ -1,0 +1,39 @@
+{
+  "_doc": "Malformed-LLM / robustness set (S-5). Each sibling file is a raw provider response carrying a *coercible* defect — the exact shapes v1's hand-written _normalize_tables / _normalize_lineage_rows had to absorb. The Pydantic validators in the structured-call loop (SDD §6.3, P0-5) must normalize each to the target below; because the defect is coercible, recovery happens WITHOUT consuming a retry.",
+  "cases": {
+    "tables_as_dict.json": {
+      "defect": "input_tables is a {name: [columns]} mapping instead of a list of table objects",
+      "normalized_input_tables": [
+        {"name": "sales.orders", "columns": ["cust_id", "amount"]},
+        {"name": "crm.customers", "columns": ["cust_id", "status"]}
+      ],
+      "recovers_without_retry": true
+    },
+    "tables_as_string.json": {
+      "defect": "input_tables is a single bare table-name string",
+      "normalized_input_tables": [{"name": "sales.orders", "columns": []}],
+      "recovers_without_retry": true
+    },
+    "tables_as_csv.json": {
+      "defect": "input_tables is a comma-separated string of table names",
+      "normalized_input_tables": [
+        {"name": "sales.orders", "columns": []},
+        {"name": "crm.customers", "columns": []},
+        {"name": "raw.feed", "columns": []}
+      ],
+      "recovers_without_retry": true
+    },
+    "tables_as_null.json": {
+      "defect": "input_tables is null",
+      "normalized_input_tables": [],
+      "recovers_without_retry": true
+    },
+    "lineage_as_scalar.json": {
+      "defect": "lineage_rows is a single scalar string instead of a list of rows",
+      "normalized_lineage_rows": [
+        {"source_element": "sales.orders.amount", "target_element": "mart.scores.score"}
+      ],
+      "recovers_without_retry": true
+    }
+  }
+}
