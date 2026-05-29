@@ -17,6 +17,7 @@ disappeared becomes a stale-override ``Issue``, SDD §9.3).
 from __future__ import annotations
 
 import json
+from enum import Enum
 
 from sqlalchemy import Float, Integer, String, Text, create_engine, delete, select
 from sqlalchemy.orm import DeclarativeBase, Mapped, Session, mapped_column
@@ -194,7 +195,15 @@ def apply_overrides(state: RunState, overrides: list[Override]) -> RunState:
     for override in overrides:
         target = index.get(override.target)
         if target is not None and hasattr(target, override.field):
-            setattr(target, override.field, override.new)
+            current = getattr(target, override.field)
+            # Coerce a JSON scalar back into the field's enum type (e.g. "Accepted"
+            # -> ReviewStatus.ACCEPTED) so the re-applied state stays well-typed.
+            value = (
+                type(current)(override.new)
+                if isinstance(current, Enum) and not isinstance(override.new, Enum)
+                else override.new
+            )
+            setattr(target, override.field, value)
             applied.append(override)
         else:
             new.issues.append(
