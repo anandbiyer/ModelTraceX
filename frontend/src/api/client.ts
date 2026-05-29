@@ -3,11 +3,15 @@
  * the Vite dev proxy (and a same-origin deploy) forward `/runs/*` to FastAPI.
  */
 import type {
+  ChatApplyResult,
+  ChatMutation,
+  ChatPlan,
   ColumnSubgraph,
   Estimate,
   IngestView,
   OverrideResult,
   RunCreated,
+  RunConfig,
   RunState,
   SSEEvent,
   TableGraph,
@@ -22,6 +26,17 @@ async function json<T>(resp: Response): Promise<T> {
 }
 
 export const api = {
+  /** Public-safe runtime config (security_mode bounds, retain_source, etc.). */
+  config: () => fetch("/config").then(json<RunConfig>),
+
+  /** Set the per-run security_mode (D6); bounded by allowed_security_modes. */
+  setSecurityMode: (id: string, security_mode: "cloud" | "local") =>
+    fetch(`/runs/${id}/security`, {
+      method: "PATCH",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ security_mode }),
+    }).then(json<{ run_id: string; security_mode: string }>),
+
   createRun: () => fetch("/runs", { method: "POST" }).then(json<RunCreated>),
 
   getRun: (id: string) =>
@@ -72,6 +87,22 @@ export const api = {
     }).then(json<OverrideResult>),
 
   exportUrl: (id: string, kind: string) => `/runs/${id}/exports/${kind}`,
+
+  chat: (id: string, message: string) =>
+    fetch(`/runs/${id}/chat`, {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ message }),
+    }).then(json<ChatPlan>),
+
+  chatApply: (id: string, mutations: ChatMutation[]) =>
+    fetch(`/runs/${id}/chat/apply`, {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({
+        mutations: mutations.map((m) => ({ op: m.op, args: m.args })),
+      }),
+    }).then(json<ChatApplyResult>),
 };
 
 /** Subscribe to the run's SSE channel; returns an unsubscribe fn (FR-8.3). */

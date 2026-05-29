@@ -15,11 +15,15 @@ import queue
 import threading
 import uuid
 from dataclasses import dataclass, field
+from typing import TYPE_CHECKING
 
 from modeltracex.analysis.orchestrator import ModelInput
 from modeltracex.ingestion import SourceArtifact, detect_language
-from modeltracex.state import Language, RunState
+from modeltracex.state import Language, RunState, SecurityMode
 from modeltracex.store.db import RunStore
+
+if TYPE_CHECKING:
+    from modeltracex.analysis.rerun import IncrementalRun
 
 # Run lifecycle states surfaced to the UI.
 CREATED = "created"
@@ -67,9 +71,13 @@ class RunSession:
     status: str = CREATED
     candidates: list[CandidateModel] = field(default_factory=list)
     state: RunState | None = None
+    engine: IncrementalRun | None = None  # caches per-model results for targeted re-run
     error: str | None = None
     events: queue.Queue[dict[str, object]] = field(default_factory=queue.Queue)
     _thread: threading.Thread | None = None
+    # Per-run security mode override (D6). None → fall back to Settings.security_mode.
+    # The egress guard runs again at analyze-time, so an out-of-policy choice raises.
+    security_mode: SecurityMode | None = None
 
     # -- ingestion -------------------------------------------------------- #
     def add_artifacts(self, artifacts: list[SourceArtifact]) -> None:

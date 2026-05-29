@@ -68,17 +68,23 @@ export function FilterChip({
   label,
   active,
   onClick,
+  disabled,
+  testid,
 }: {
   label: string;
   active: boolean;
   onClick: () => void;
+  disabled?: boolean;
+  testid?: string;
 }) {
   return (
     <button
       onClick={onClick}
+      disabled={disabled}
       aria-pressed={active}
+      data-testid={testid}
       className={
-        "rounded-full border px-2.5 py-1 text-xs transition-colors " +
+        "rounded-full border px-2.5 py-1 text-xs transition-colors disabled:opacity-40 disabled:cursor-not-allowed " +
         (active
           ? "border-accent bg-accent-soft text-accent"
           : "border-border text-dim hover:text-text")

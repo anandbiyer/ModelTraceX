@@ -29,7 +29,7 @@ from fastapi.responses import FileResponse, JSONResponse
 from pydantic import BaseModel, Field
 from sse_starlette.sse import EventSourceResponse
 
-from modeltracex.analysis.orchestrator import analyze_run
+from modeltracex.analysis.rerun import INVALIDATION, IncrementalRun, triggers_llm
 from modeltracex.api import estimate as estimate_mod
 from modeltracex.api import lineage_json
 from modeltracex.api.overrides import OverrideError, apply_override, pending_review
@@ -41,10 +41,12 @@ from modeltracex.api.registry import (
     RunRegistry,
     RunSession,
 )
+from modeltracex.chat import ChatAgent
 from modeltracex.config import Settings, get_settings
 from modeltracex.ingestion import SourceArtifact, read_paste, read_path, unzip_project
 from modeltracex.llm.provider import LLMProvider, build_provider
-from modeltracex.state import Language, Override
+from modeltracex.security import default_redactor, scrub_for_retention
+from modeltracex.state import Language, Override, SecurityMode
 
 # --------------------------------------------------------------------------- #
 # Request / response bodies
@@ -80,6 +82,25 @@ class OverrideRequest(BaseModel):
     new: object | None = None
     old: object | None = None
     by: str = "user"
+
+
+class ChatRequest(BaseModel):
+    message: str
+
+
+class SecurityModeRequest(BaseModel):
+    """Per-run override of security_mode (decision D6)."""
+
+    security_mode: SecurityMode
+
+
+class ChatMutationBody(BaseModel):
+    op: str
+    args: dict = Field(default_factory=dict)
+
+
+class ChatApplyRequest(BaseModel):
+    mutations: list[ChatMutationBody]
 
 
 # --------------------------------------------------------------------------- #
@@ -157,6 +178,18 @@ def create_app(settings: Settings | None = None, registry: RunRegistry | None = 
         return session
 
     # -- lifecycle ------------------------------------------------------- #
+    @app.get("/config")
+    def config() -> dict[str, object]:
+        """Public-safe runtime config the FE needs (D6, NFR-2 ceiling on Cloud)."""
+        return {
+            "security_mode": cfg.security_mode.value,
+            "allowed_security_modes": [m.value for m in cfg.allowed_security_modes],
+            "retain_source": cfg.retain_source,
+            "detail_level": cfg.detail_level.value,
+            "provider": cfg.provider,
+            "model": cfg.model,
+        }
+
     @app.post("/runs")
     def create_run() -> dict[str, str]:
         session = reg.create()
@@ -210,6 +243,21 @@ def create_app(settings: Settings | None = None, registry: RunRegistry | None = 
         session = _session_or_404(run_id)
         return estimate_mod.estimate_models([(c.label, c.code) for c in session.candidates])
 
+    @app.patch("/runs/{run_id}/security")
+    def patch_security(run_id: str, body: SecurityModeRequest) -> dict[str, object]:
+        """Set the per-run security mode (D6); bounded by ``allowed_security_modes``."""
+        session = _session_or_404(run_id)
+        if body.security_mode not in cfg.allowed_security_modes:
+            raise HTTPException(
+                status_code=422,
+                detail=(
+                    f"security_mode={body.security_mode.value!r} not in allowed "
+                    f"{[m.value for m in cfg.allowed_security_modes]}"
+                ),
+            )
+        session.security_mode = body.security_mode
+        return {"run_id": run_id, "security_mode": body.security_mode.value}
+
     @app.post("/runs/{run_id}/analyze")
     def analyze(
         run_id: str, provider: Annotated[LLMProvider, Depends(get_provider)]
@@ -219,9 +267,20 @@ def create_app(settings: Settings | None = None, registry: RunRegistry | None = 
             raise HTTPException(status_code=422, detail="nothing ingested to analyze")
         if session.status == ANALYZING:
             raise HTTPException(status_code=409, detail="run already analyzing")
+        # If the run has a security_mode override, rebuild the provider through the
+        # egress guard with that mode — keeps NFR-2 enforced regardless of UI input.
+        effective_cfg = cfg
+        effective_provider = provider
+        if session.security_mode is not None and session.security_mode is not cfg.security_mode:
+            effective_cfg = cfg.model_copy(update={"security_mode": session.security_mode})
+            effective_provider = build_provider(effective_cfg)
         session.status = ANALYZING
         session.error = None
-        thread = threading.Thread(target=_run_analysis, args=(session, provider, cfg), daemon=True)
+        thread = threading.Thread(
+            target=_run_analysis,
+            args=(session, effective_provider, effective_cfg),
+            daemon=True,
+        )
         session._thread = thread
         thread.start()
         return {"run_id": run_id, "status": ANALYZING}
@@ -289,6 +348,64 @@ def create_app(settings: Settings | None = None, registry: RunRegistry | None = 
         path = _export_file(session, kind)
         return FileResponse(path, filename=Path(path).name)
 
+    # -- chat-to-state (SDD §13.2/§13.3) --------------------------------- #
+    @app.post("/runs/{run_id}/chat")
+    def chat(
+        run_id: str,
+        body: ChatRequest,
+        provider: Annotated[LLMProvider, Depends(get_provider)],
+    ) -> dict[str, object]:
+        session = _analyzed_or_409(_session_or_404(run_id))
+        plan = ChatAgent(provider).plan(body.message, session.state)
+        return {
+            "rationale": plan.rationale,
+            "mutations": [
+                {
+                    "op": m.op,
+                    "args": m.args,
+                    "requires_confirmation": m.requires_confirmation,
+                    "triggers_llm": triggers_llm(m.op),
+                    "invalidates": sorted(s.value for s in INVALIDATION.get(m.op, frozenset())),
+                }
+                for m in plan.mutations
+            ],
+        }
+
+    @app.post("/runs/{run_id}/chat/apply")
+    def chat_apply(run_id: str, body: ChatApplyRequest) -> dict[str, object]:
+        session = _analyzed_or_409(_session_or_404(run_id))
+        if session.engine is None:
+            raise HTTPException(status_code=409, detail="run has no incremental engine")
+        if not body.mutations:
+            raise HTTPException(status_code=422, detail="no mutations to apply")
+        reanalyzed: list[str] = []
+        llm_used = False
+        for m in body.mutations:
+            try:
+                outcome = session.engine.apply(m.op, m.args)
+            except (ValueError, KeyError) as exc:
+                raise HTTPException(status_code=422, detail=f"cannot apply {m.op}: {exc}") from exc
+            reanalyzed += outcome.reanalyzed
+            llm_used = llm_used or outcome.llm_used
+            session.state = outcome.state
+        # Re-apply logged entity overrides on top of the re-assembled state (§9.3).
+        assert session.state is not None
+        for ov in session.store.overrides_for(run_id):
+            with contextlib.suppress(OverrideError):
+                apply_override(session.state, ov)
+        session.store.save(session.state)
+        return {
+            "ok": True,
+            "reanalyzed": reanalyzed,
+            "llm_used": llm_used,
+            "counts": {
+                "tables": len(session.state.tables),
+                "table_edges": len(session.state.table_edges),
+                "dq_rules": len(session.state.dq_rules),
+                "pending_review": pending_review(session.state),
+            },
+        }
+
     return app
 
 
@@ -325,15 +442,21 @@ def _run_analysis(session: RunSession, provider: LLMProvider, cfg: Settings) -> 
         {"type": "run_started", "run_id": session.run_id, "total": len(session.candidates)}
     )
     try:
-        run_state = analyze_run(
+        # The interactive run is driven by the incremental engine so a later chat
+        # mutation re-runs only the minimal set (§13.3); the initial pass is a full run.
+        # The redactor masks PII before any provider call (NFR-2).
+        engine = IncrementalRun(
             provider,
             session.inputs(),
             run_id=session.run_id,
-            tool_version=cfg.tool_version,
             detail_level=cfg.detail_level,
-            max_concurrency=cfg.max_concurrency,
-            on_progress=session.events.put,
+            tool_version=cfg.tool_version,
+            redactor=default_redactor(),
         )
+        run_state = engine.full(on_progress=session.events.put)
+        run_state.run.security_mode = cfg.security_mode
+        scrub_for_retention(run_state, retain_source=cfg.retain_source)
+        session.engine = engine
         # Re-apply any human overrides logged in earlier passes (survives re-run, §9.3).
         for ov in session.store.overrides_for(session.run_id):
             with contextlib.suppress(OverrideError):
@@ -390,7 +513,9 @@ def _export_file(session: RunSession, kind: str) -> str:
     from modeltracex.exporters.csv_compat import CsvCompatExporter
     from modeltracex.exporters.docx_report import DocxExporter
     from modeltracex.exporters.xlsx_workbook import XlsxExporter
+    from modeltracex.lineage.drawio import DrawioExporter
     from modeltracex.lineage.graph import LineageGraph
+    from modeltracex.lineage.openlineage import OpenLineageExporter
     from modeltracex.lineage.render_graphviz import GraphvizRenderer
     from modeltracex.lineage.render_mermaid import MermaidRenderer
 
@@ -406,6 +531,10 @@ def _export_file(session: RunSession, kind: str) -> str:
         return CsvCompatExporter().export(session.state, str(out_dir))[0]
     if kind == "mermaid":
         return MermaidRenderer().render(LineageGraph(session.state), str(out_dir / "lineage"))
+    if kind == "openlineage":
+        return OpenLineageExporter().export(session.state, str(out_dir))[0]
+    if kind == "drawio":
+        return DrawioExporter().export(session.state, str(out_dir))[0]
     if kind in ("svg", "pdf"):
         renderer = GraphvizRenderer()
         renderer.fmt = kind

@@ -24,6 +24,16 @@ export interface RunCreated {
   status: string;
 }
 
+/** Public-safe runtime config returned by GET /config (Phase 4 P4-6, D6). */
+export interface RunConfig {
+  security_mode: "cloud" | "local";
+  allowed_security_modes: ("cloud" | "local")[];
+  retain_source: boolean;
+  detail_level: "table" | "column";
+  provider: string;
+  model: string;
+}
+
 export interface CandidateFile {
   filename: string;
   evidence: string;
@@ -215,4 +225,23 @@ export interface OverrideResult {
   target: string;
   entity: Record<string, unknown>;
   pending_review: number;
+}
+
+/** Chat mutation as returned by `/runs/{id}/chat` (SDD §13.2/§13.3). */
+export interface ChatMutation {
+  op: string;
+  args: Record<string, unknown>;
+  requires_confirmation: boolean;
+  triggers_llm: boolean;
+  invalidates: string[];
+}
+export interface ChatPlan {
+  rationale: string;
+  mutations: ChatMutation[];
+}
+export interface ChatApplyResult {
+  ok: boolean;
+  reanalyzed: string[];
+  llm_used: boolean;
+  counts: { tables: number; table_edges: number; dq_rules: number; pending_review: number };
 }

@@ -56,6 +56,7 @@ _NON_EGRESS = frozenset({"local", "fake"})
 _PROVIDERS: dict[str, tuple[str, str]] = {
     "fake": ("modeltracex.llm.fake", "build"),
     "anthropic": ("modeltracex.llm.anthropic", "build"),
+    "local": ("modeltracex.llm.local", "build"),
 }
 
 

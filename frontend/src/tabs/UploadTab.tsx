@@ -4,12 +4,12 @@
  * the analysis-settings panel with a pre-flight token/cost estimate (D4/NFR-6),
  * and Analyze — which starts the orchestrator and streams per-model progress.
  */
-import { type ChangeEvent, useRef, useState } from "react";
+import { type ChangeEvent, useEffect, useRef, useState } from "react";
 
 import { api, subscribeEvents } from "../api/client";
 import { Button, Card, FilterChip } from "../components/primitives";
 import { useUI } from "../store/ui";
-import type { Estimate, IngestView, SSEEvent } from "../types";
+import type { Estimate, IngestView, RunConfig, SSEEvent } from "../types";
 
 const LANGS = ["SAS", "Python", "R", "VBA"];
 
@@ -21,8 +21,17 @@ export function UploadTab() {
   const [selected, setSelected] = useState<Set<number>>(new Set());
   const [progress, setProgress] = useState<SSEEvent[]>([]);
   const [analyzing, setAnalyzing] = useState(false);
-  const [dataHandling, setDataHandling] = useState<"Local" | "Cloud">("Cloud");
+  const [dataHandling, setDataHandling] = useState<"local" | "cloud">("cloud");
+  const [config, setConfig] = useState<RunConfig | null>(null);
   const fileInput = useRef<HTMLInputElement>(null);
+
+  useEffect(() => {
+    // Load the config-enforced security-mode ceiling once (NFR-2, D6).
+    void api.config().then((cfg) => {
+      setConfig(cfg);
+      setDataHandling(cfg.security_mode);
+    });
+  }, []);
 
   async function ensureRun(): Promise<string> {
     if (runId) return runId;
@@ -61,6 +70,16 @@ export function UploadTab() {
   async function onEstimate() {
     if (!runId) return;
     setEstimate(await api.estimate(runId));
+  }
+
+  async function onSetSecurity(mode: "local" | "cloud") {
+    setDataHandling(mode);
+    if (!runId) return;
+    try {
+      await api.setSecurityMode(runId, mode);
+    } catch {
+      // server-side validation reverts the chip if the mode isn't in allowed_security_modes.
+    }
   }
 
   async function onAnalyze() {
@@ -206,18 +225,29 @@ export function UploadTab() {
           </div>
         </label>
 
-        <div className="flex flex-col gap-1 text-xs text-muted">
+        <div className="flex flex-col gap-1 text-xs text-muted" data-testid="security-mode">
           Data handling
           <div className="flex gap-1">
-            {(["Local", "Cloud"] as const).map((d) => (
-              <FilterChip
-                key={d}
-                label={d}
-                active={dataHandling === d}
-                onClick={() => setDataHandling(d)}
-              />
-            ))}
+            {(["local", "cloud"] as const).map((d) => {
+              const disabled =
+                config != null && !config.allowed_security_modes.includes(d);
+              return (
+                <FilterChip
+                  key={d}
+                  label={d === "local" ? "Local · no-retention" : "Cloud"}
+                  active={dataHandling === d}
+                  onClick={() => !disabled && onSetSecurity(d)}
+                  disabled={disabled}
+                  testid={`security-${d}`}
+                />
+              );
+            })}
           </div>
+          {config != null && !config.allowed_security_modes.includes("cloud") && (
+            <span className="text-[10px] text-amber" data-testid="security-locked">
+              Cloud disabled by config policy (NFR-2).
+            </span>
+          )}
         </div>
 
         <div className="flex flex-col gap-1 text-xs text-muted">

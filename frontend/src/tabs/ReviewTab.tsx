@@ -182,6 +182,15 @@ export function ReviewTab() {
         <a href={api.exportUrl(runId, "docx")} className="text-xs text-accent hover:underline">
           Project summary ↓
         </a>
+        <div
+          className="mt-3 rounded border border-border-soft bg-elev p-2 text-[11px] text-dim"
+          data-testid="run-summary-telemetry"
+        >
+          <div className="font-semibold uppercase tracking-wide text-muted">Run telemetry</div>
+          <div className="mono mt-1">
+            {state.run.tokens.toLocaleString()} tok · ${state.run.est_cost.toFixed(4)}
+          </div>
+        </div>
         <div className="mb-1 mt-3 text-xs font-semibold uppercase tracking-wide text-muted">
           Models
         </div>
@@ -201,6 +210,9 @@ export function ReviewTab() {
                   <StatusBadge status={m.status} />
                 </span>
               </button>
+              <div className="mono pl-5 text-[10px] text-muted" data-testid="model-telemetry">
+                {m.telemetry.tokens_in + m.telemetry.tokens_out} tok · ${m.telemetry.est_cost.toFixed(4)}
+              </div>
             </li>
           ))}
         </ul>

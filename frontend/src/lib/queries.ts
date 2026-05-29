@@ -6,6 +6,7 @@
 import { QueryClient, useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 
 import { api } from "../api/client";
+import type { ChatMutation } from "../types";
 
 export const queryClient = new QueryClient({
   defaultOptions: { queries: { retry: false, refetchOnWindowFocus: false } },
@@ -46,6 +47,24 @@ export function useOverride(runId: string) {
   return useMutation({
     mutationFn: (body: { target: string; field: string; new: unknown; by?: string }) =>
       api.override(runId, body),
+    onSuccess: () => {
+      void qc.invalidateQueries({ queryKey: keys.state(runId) });
+      void qc.invalidateQueries({ queryKey: keys.lineage(runId) });
+      void qc.invalidateQueries({ queryKey: ["columns", runId] });
+    },
+  });
+}
+
+export function useChat(runId: string) {
+  return useMutation({
+    mutationFn: (message: string) => api.chat(runId, message),
+  });
+}
+
+export function useChatApply(runId: string) {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (mutations: ChatMutation[]) => api.chatApply(runId, mutations),
     onSuccess: () => {
       void qc.invalidateQueries({ queryKey: keys.state(runId) });
       void qc.invalidateQueries({ queryKey: keys.lineage(runId) });

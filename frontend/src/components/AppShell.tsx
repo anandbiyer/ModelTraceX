@@ -32,7 +32,21 @@ export function AppShell({ children }: { children: ReactNode }) {
             {languages ? ` · ${languages}` : ""}
           </span>
         )}
-        <span className="ml-auto rounded border border-border bg-elev px-2 py-1 text-xs text-dim">
+        {meta && (
+          <span
+            className="ml-auto rounded border border-border bg-elev px-2 py-1 text-xs text-dim"
+            data-testid="cost-telemetry"
+            title="Total tokens / estimated cost across this run (NFR-6)"
+          >
+            {meta.tokens.toLocaleString()} tok · ${meta.est_cost.toFixed(4)}
+          </span>
+        )}
+        <span
+          className={
+            "rounded border border-border bg-elev px-2 py-1 text-xs text-dim " +
+            (meta ? "" : "ml-auto")
+          }
+        >
           {meta ? `${meta.llm_provider} · ${meta.security_mode} mode` : "Claude · cloud mode"}
         </span>
       </header>

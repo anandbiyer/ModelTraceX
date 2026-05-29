@@ -97,13 +97,17 @@ def run_project(
     from modeltracex.lineage.graph import LineageGraph
     from modeltracex.lineage.render_mermaid import MermaidRenderer
     from modeltracex.llm.provider import build_provider
+    from modeltracex.security import default_redactor, scrub_for_retention
     from modeltracex.store.db import RunStore
 
+    cfg = get_settings()
     if provider is None:
-        provider = build_provider(get_settings())
+        provider = build_provider(cfg)
 
     models = assemble_models(_ingest_paths(paths))
-    state = analyze_run(provider, models)
+    state = analyze_run(provider, models, redactor=default_redactor())
+    state.run.security_mode = cfg.security_mode
+    scrub_for_retention(state, retain_source=cfg.retain_source)
 
     Path(out_dir).mkdir(parents=True, exist_ok=True)
     RunStore(str(Path(out_dir) / "runs.db")).save(state)

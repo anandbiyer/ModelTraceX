@@ -33,6 +33,7 @@ from modeltracex.llm.prompts import build_system_prompt, build_user_prompt
 from modeltracex.llm.provider import LLMProvider, Usage
 from modeltracex.llm.schema import ModelExtraction
 from modeltracex.llm.structured import SchemaValidationError, structured_call
+from modeltracex.security.redactor import RedactionSummary, Redactor
 from modeltracex.state import (
     Calculation,
     Column,
@@ -125,7 +126,11 @@ def _add(a: Usage, b: Usage) -> Usage:
 # Per-model analysis (runs in a worker thread; provider calls are synchronous)
 # --------------------------------------------------------------------------- #
 def _analyze_model_sync(
-    provider: LLMProvider, mi: ModelInput, detail_level: DetailLevel, max_chunk_tokens: int
+    provider: LLMProvider,
+    mi: ModelInput,
+    detail_level: DetailLevel,
+    max_chunk_tokens: int,
+    redactor: Redactor | None = None,
 ) -> _ModelResult:
     model_ref = ids.model_id(mi.label, mi.source_files)
     adapter = ADAPTERS.get(mi.language)
@@ -138,7 +143,12 @@ def _analyze_model_sync(
     usage = Usage()
     issues: list[Issue] = []
     failures = 0
+    redaction = RedactionSummary()
     for chunk in chunks:
+        if redactor is not None and chunk:
+            chunk, hits = redactor.redact(chunk)
+            if hits:
+                redaction.add(hits)
         user = build_user_prompt(mi.label, mi.language.value, scan.libnames, chunk)
         try:
             result = structured_call(provider, system, user, ModelExtraction)
@@ -154,6 +164,10 @@ def _analyze_model_sync(
             continue
         parts.append(result.value)
         usage = _add(usage, result.usage)
+
+    # NFR-2: redaction is recorded as an Issue so reviewers see what was masked.
+    if redaction.total:
+        issues.append(Issue(model_id=model_ref, severity="info", message=redaction.message()))
 
     if not parts:
         status = ModelStatus.FAILED
@@ -173,6 +187,7 @@ async def _analyze_async(
     tokens_per_minute: int,
     max_chunk_tokens: int,
     on_progress: ProgressFn | None,
+    redactor: Redactor | None = None,
 ) -> list[_ModelResult]:
     sem = asyncio.Semaphore(max_concurrency)
     limiter = _TokenBucket(requests_per_minute, tokens_per_minute)
@@ -199,7 +214,7 @@ async def _analyze_async(
         async with sem:
             await limiter.acquire(1, estimate_tokens(mi.code))
             result = await asyncio.to_thread(
-                _analyze_model_sync, provider, mi, detail_level, max_chunk_tokens
+                _analyze_model_sync, provider, mi, detail_level, max_chunk_tokens, redactor
             )
         completed += 1
         emit(
@@ -220,20 +235,24 @@ async def _analyze_async(
 # --------------------------------------------------------------------------- #
 # Public entry point
 # --------------------------------------------------------------------------- #
-def analyze_run(
+def run_models(
     provider: LLMProvider,
     inputs: list[ModelInput],
     *,
-    tool_version: str = "2.0.0-dev",
-    run_id: str | None = None,
     detail_level: DetailLevel = DetailLevel.TABLE,
     max_concurrency: int = 8,
     requests_per_minute: int = 6000,
     tokens_per_minute: int = 100_000_000,
     max_chunk_tokens: int = _MAX_CHUNK_TOKENS,
     on_progress: ProgressFn | None = None,
-) -> RunState:
-    results = asyncio.run(
+    redactor: Redactor | None = None,
+) -> list[_ModelResult]:
+    """The per-model stage: scan ⊕ chunked LLM extraction (no cross-model assembly).
+
+    Exposed so the incremental re-run engine (P3-3) can re-run a *subset* of models
+    and reuse cached results for the rest before re-assembling.
+    """
+    return asyncio.run(
         _analyze_async(
             provider,
             inputs,
@@ -243,18 +262,35 @@ def analyze_run(
             tokens_per_minute,
             max_chunk_tokens,
             on_progress,
+            redactor,
         )
     )
 
-    run = RunMeta(
-        run_id=run_id or _new_run_id(),
-        timestamp=datetime.now(tz=UTC).isoformat(),
-        tool_version=tool_version,
-        llm_provider=getattr(provider, "name", "unknown"),
-        llm_model=getattr(provider, "model", "unknown"),
-    )
-    state = RunState(run=run)
 
+def analyze_one(
+    provider: LLMProvider,
+    mi: ModelInput,
+    *,
+    detail_level: DetailLevel = DetailLevel.TABLE,
+    max_chunk_tokens: int = _MAX_CHUNK_TOKENS,
+    redactor: Redactor | None = None,
+) -> _ModelResult:
+    """Analyze a single model synchronously (used by targeted re-run, §13.3)."""
+    return _analyze_model_sync(provider, mi, detail_level, max_chunk_tokens, redactor)
+
+
+def assemble_run_state(
+    results: list[_ModelResult],
+    *,
+    run: RunMeta,
+    role_overrides: dict[str, TableRole] | None = None,
+) -> RunState:
+    """Pure cross-model assembly (no LLM): models, lineage stitch, DQ, source systems.
+
+    ``role_overrides`` (table_id → role) honour a user/chat ``set_table_role`` so a
+    re-stitch keeps the forced lane (§13.3, projection-only, ~0 token cost).
+    """
+    state = RunState(run=run)
     for r in results:
         ext = r.extraction
         state.run.tokens += r.usage.tokens_in + r.usage.tokens_out
@@ -288,10 +324,49 @@ def analyze_run(
         )
 
     _assemble_lineage(state, results)
+    if role_overrides:
+        for table in state.tables:
+            if table.table_id in role_overrides:
+                table.role = role_overrides[table.table_id]
     state.usage_observations = [u for r in results for u in r.scan.usages]
     state.dq_rules = infer_rules(state.usage_observations)
     _derive_source_systems(state)
     return state
+
+
+def analyze_run(
+    provider: LLMProvider,
+    inputs: list[ModelInput],
+    *,
+    tool_version: str = "2.0.0-dev",
+    run_id: str | None = None,
+    detail_level: DetailLevel = DetailLevel.TABLE,
+    max_concurrency: int = 8,
+    requests_per_minute: int = 6000,
+    tokens_per_minute: int = 100_000_000,
+    max_chunk_tokens: int = _MAX_CHUNK_TOKENS,
+    on_progress: ProgressFn | None = None,
+    redactor: Redactor | None = None,
+) -> RunState:
+    results = run_models(
+        provider,
+        inputs,
+        detail_level=detail_level,
+        max_concurrency=max_concurrency,
+        requests_per_minute=requests_per_minute,
+        tokens_per_minute=tokens_per_minute,
+        max_chunk_tokens=max_chunk_tokens,
+        on_progress=on_progress,
+        redactor=redactor,
+    )
+    run = RunMeta(
+        run_id=run_id or _new_run_id(),
+        timestamp=datetime.now(tz=UTC).isoformat(),
+        tool_version=tool_version,
+        llm_provider=getattr(provider, "name", "unknown"),
+        llm_model=getattr(provider, "model", "unknown"),
+    )
+    return assemble_run_state(results, run=run)
 
 
 def _refs(result: _ModelResult, *, output: bool) -> list[tuple[str, list[str], Provenance]]:
@@ -451,4 +526,24 @@ def _derive_source_systems(state: RunState) -> None:
     ]
 
 
-__all__ = ["ModelInput", "analyze_run"]
+__all__ = [
+    "ModelInput",
+    "analyze_run",
+    "run_models",
+    "analyze_one",
+    "assemble_run_state",
+    "new_run_meta",
+]
+
+
+def new_run_meta(
+    provider: LLMProvider, *, run_id: str | None = None, tool_version: str = "2.0.0-dev"
+) -> RunMeta:
+    """Build a fresh ``RunMeta`` for an (incremental) re-assembly."""
+    return RunMeta(
+        run_id=run_id or _new_run_id(),
+        timestamp=datetime.now(tz=UTC).isoformat(),
+        tool_version=tool_version,
+        llm_provider=getattr(provider, "name", "unknown"),
+        llm_model=getattr(provider, "model", "unknown"),
+    )
