@@ -53,10 +53,16 @@ PY = ADAPTERS[Language.PYTHON]
 def test_adapter_emits_expected_usage(kind_dir: Path) -> None:
     expected = json.loads((kind_dir / "expected.json").read_text("utf-8"))
     want_kind = expected["usage_kind"]
-    want_col = expected["expected_usages"][0]["element"].split(".")[-1]
+    want_col = expected["expected_usages"][0]["element"].rsplit(".", 1)[-1]
     for adapter, fname in [(SAS, "model.sas"), (PY, "model.py")]:
         scan = adapter.scan((kind_dir / fname).read_text("utf-8"), "m")
-        emitted = {(u.element, u.usage_kind.value) for u in scan.usages}
+        # Phase 4D: adapters now qualify elements as ``<table>.<col>`` so the
+        # DQ-tab reviewer can see which table the rule applies to. The fixture
+        # records its preferred qualifier (e.g. ``sales.orders.amount``) but
+        # adapter-side qualification varies (SAS sees libnames, Python sees
+        # file paths). Comparing on the bare last-segment column keeps the
+        # test focused on detection correctness, not qualification strategy.
+        emitted = {(u.element.rsplit(".", 1)[-1], u.usage_kind.value) for u in scan.usages}
         assert (want_col, want_kind) in emitted, (
             f"{fname}: missing ({want_col},{want_kind}) in {emitted}"
         )

@@ -24,6 +24,27 @@ export interface RunCreated {
   status: string;
 }
 
+/** One row in the Recent runs history panel (Phase 4D P4D-8). */
+export interface RunSummary {
+  run_id: string;
+  timestamp: string;
+  tool_version: string;
+  provider: string;
+  model: string;
+  tokens: number;
+  est_cost: number;
+  security_mode: string;
+  status?: string;
+  counts: {
+    models: number;
+    tables: number;
+    table_edges: number;
+    column_edges: number;
+    dq_rules: number;
+    issues: number;
+  };
+}
+
 /** Public-safe runtime config returned by GET /config (Phase 4 P4-6, D6). */
 export interface RunConfig {
   security_mode: "cloud" | "local";
@@ -185,6 +206,7 @@ export interface DQRule {
   source: Provenance;
   confidence: Confidence;
   status: RuleStatus;
+  model_ids: string[];
 }
 export interface RunMeta {
   run_id: string;
@@ -196,12 +218,28 @@ export interface RunMeta {
   est_cost: number;
   security_mode: string;
 }
+/** Column-level lineage edge as serialized in `RunState.column_edges`
+ *  (the canonical Pydantic shape, distinct from the `ColumnEdge` API view
+ *  above which is the column-subgraph projection). */
+export interface ColumnEdgeRaw {
+  edge_id: string;
+  source_element: string;
+  target_element: string;
+  model_id: string;
+  transformation_type: string;
+  expression: string | null;
+  join_keys: string[];
+  source: Provenance;
+  confidence: Confidence;
+  review_status: ReviewStatus;
+}
+
 export interface RunState {
   run: RunMeta;
   models: ModelDoc[];
   tables: Table[];
   table_edges: unknown[];
-  column_edges: unknown[];
+  column_edges: ColumnEdgeRaw[];
   dq_rules: DQRule[];
   source_systems: { name: string; tables: string[] }[];
   issues: { model_id: string | null; severity: string; message: string }[];

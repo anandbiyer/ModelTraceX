@@ -29,26 +29,55 @@ def _col(node: ast.expr | None) -> str | None:
     return None
 
 
+def _df_name(node: ast.expr | None) -> str | None:
+    """The dataframe variable name in ``df["col"]`` (or ``None``)."""
+    if isinstance(node, ast.Subscript) and isinstance(node.value, ast.Name):
+        return node.value.id
+    return None
+
+
+def _path_to_table(path: str) -> str:
+    """Reduce ``data/in/foo.csv`` → ``foo`` for use as a DQ element prefix."""
+    from pathlib import PurePosixPath
+
+    return PurePosixPath(path).stem or path
+
+
 class _Scanner(ast.NodeVisitor):
     def __init__(self, model_id: str) -> None:
         self.model_id = model_id
         self.scan = StructuralScan()
         self._read_kinds: set[str] = set()
-        self._assigned_cols: list[str] = []
+        self._assigned_cols: list[tuple[str, str | None]] = []  # (col, dataframe_var)
         self._has_output = False
+        # df_var -> table (the source path's stem) so we can qualify columns
+        # as ``<table>.<col>`` in DQ elements (Phase 4D P4D-7).
+        self._df_to_table: dict[str, str] = {}
+        self._default_table: str | None = None
 
-    def _obs(self, col: str | None, kind: UsageKind, evidence: str) -> None:
-        if col:
-            self.scan.usages.append(
-                UsageObservation(
-                    element=col,
-                    usage_kind=kind,
-                    evidence=evidence,
-                    model_id=self.model_id,
-                    source=Provenance.HEURISTIC,
-                    confidence=Confidence.HIGH,
-                )
+    def _qualify(self, df_var: str | None, col: str) -> str:
+        table = (df_var and self._df_to_table.get(df_var)) or self._default_table
+        return f"{table}.{col}" if table else col
+
+    def _obs(
+        self,
+        col: str | None,
+        kind: UsageKind,
+        evidence: str,
+        df_var: str | None = None,
+    ) -> None:
+        if not col:
+            return
+        self.scan.usages.append(
+            UsageObservation(
+                element=self._qualify(df_var, col),
+                usage_kind=kind,
+                evidence=evidence,
+                model_id=self.model_id,
+                source=Provenance.HEURISTIC,
+                confidence=Confidence.HIGH,
             )
+        )
 
     def visit_Call(self, node: ast.Call) -> None:
         if isinstance(node.func, ast.Attribute):
@@ -66,23 +95,43 @@ class _Scanner(ast.NodeVisitor):
                     self.scan.outputs.append(path)
             elif attr in {"merge", "join"}:
                 key = next((_str_arg(kw.value) for kw in node.keywords if kw.arg == "on"), None)
-                self._obs(key, UsageKind.JOIN_KEY, f".{attr}(on={key!r})")
+                df = node.func.value.id if isinstance(node.func.value, ast.Name) else None
+                self._obs(key, UsageKind.JOIN_KEY, f".{attr}(on={key!r})", df_var=df)
             elif attr == "groupby":
-                self._obs(_str_arg(first), UsageKind.AGGREGATED, ".groupby(...)")
+                df = node.func.value.id if isinstance(node.func.value, ast.Name) else None
+                self._obs(_str_arg(first), UsageKind.AGGREGATED, ".groupby(...)", df_var=df)
             elif attr == "to_datetime":
-                self._obs(_col(first), UsageKind.DATE_PARSE, "to_datetime(...)")
+                self._obs(
+                    _col(first), UsageKind.DATE_PARSE, "to_datetime(...)", df_var=_df_name(first)
+                )
             elif attr == "astype":
-                self._obs(_col(node.func.value), UsageKind.TYPE_CAST, ".astype(...)")
+                self._obs(
+                    _col(node.func.value),
+                    UsageKind.TYPE_CAST,
+                    ".astype(...)",
+                    df_var=_df_name(node.func.value),
+                )
             elif attr == "isin":
-                self._obs(_col(node.func.value), UsageKind.EQUALITY_SET, ".isin([...])")
+                self._obs(
+                    _col(node.func.value),
+                    UsageKind.EQUALITY_SET,
+                    ".isin([...])",
+                    df_var=_df_name(node.func.value),
+                )
             elif attr == "between":
-                self._obs(_col(node.func.value), UsageKind.TIME_WINDOW, ".between(...)")
+                self._obs(
+                    _col(node.func.value),
+                    UsageKind.TIME_WINDOW,
+                    ".between(...)",
+                    df_var=_df_name(node.func.value),
+                )
         self.generic_visit(node)
 
     def visit_BinOp(self, node: ast.BinOp) -> None:
         if isinstance(node.op, ast.Div):
             col = _col(node.right) or (node.right.id if isinstance(node.right, ast.Name) else None)
-            self._obs(col, UsageKind.DENOMINATOR, "x / <col>")
+            df = _df_name(node.right)
+            self._obs(col, UsageKind.DENOMINATOR, "x / <col>", df_var=df)
         self.generic_visit(node)
 
     def visit_Compare(self, node: ast.Compare) -> None:
@@ -92,14 +141,31 @@ class _Scanner(ast.NodeVisitor):
             and isinstance(node.comparators[0], ast.Constant)
             and isinstance(node.comparators[0].value, int | float)
         ):
-            self._obs(_col(node.left), UsageKind.RANGE_FILTER, "df[col] > n")
+            self._obs(
+                _col(node.left), UsageKind.RANGE_FILTER, "df[col] > n", df_var=_df_name(node.left)
+            )
         self.generic_visit(node)
 
     def visit_Assign(self, node: ast.Assign) -> None:
+        # Track `df = pd.read_csv("foo.csv")` so we can qualify downstream column
+        # references with ``foo`` (the table). Also tracks the chain through
+        # subsequent `df = df.something()` calls into the same variable.
+        if isinstance(node.value, ast.Call) and isinstance(node.value.func, ast.Attribute):
+            attr = node.value.func.attr
+            if attr in _READ:
+                path = _str_arg(node.value.args[0]) if node.value.args else None
+                if path:
+                    table = _path_to_table(path)
+                    for tgt in node.targets:
+                        if isinstance(tgt, ast.Name):
+                            self._df_to_table[tgt.id] = table
+                            if self._default_table is None:
+                                self._default_table = table
         for target in node.targets:
             col = _col(target)
             if col:
-                self._assigned_cols.append(col)
+                df = _df_name(target)
+                self._assigned_cols.append((col, df))
         self.generic_visit(node)
 
 
@@ -133,11 +199,18 @@ class PythonAdapter:
         s = scanner.scan
 
         # output_measure: a column assigned in-frame that is later written out.
+        # Dedup by qualified element so the same column on different dataframes
+        # isn't collapsed (and so qualified+bare don't double-count).
         if scanner._has_output:
-            for col in dict.fromkeys(scanner._assigned_cols):
+            seen: set[str] = set()
+            for col, df_var in scanner._assigned_cols:
+                element = scanner._qualify(df_var, col)
+                if element in seen:
+                    continue
+                seen.add(element)
                 s.usages.append(
                     UsageObservation(
-                        element=col,
+                        element=element,
                         usage_kind=UsageKind.OUTPUT_MEASURE,
                         evidence=f'df["{col}"] = ...; df.to_*()',
                         model_id=model_id,

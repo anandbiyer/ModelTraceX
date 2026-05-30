@@ -329,7 +329,9 @@ def assemble_run_state(
             if table.table_id in role_overrides:
                 table.role = role_overrides[table.table_id]
     state.usage_observations = [u for r in results for u in r.scan.usages]
-    state.dq_rules = infer_rules(state.usage_observations)
+    # Pass `tables` so the engine emits refined-Part-C baseline rules per column
+    # and stamps cross-model attribution from produced_by ∪ consumed_by (P4D refined Part C).
+    state.dq_rules = infer_rules(state.usage_observations, tables=state.tables)
     _derive_source_systems(state)
     return state
 

@@ -10,24 +10,29 @@ import { useState } from "react";
 
 import { api } from "../api/client";
 import { Inspector } from "../components/Inspector";
+import { LineageCanvas } from "../components/LineageCanvas";
+import { ModelFilter } from "../components/ModelFilter";
 import { Button, Card, ConfidenceDot, FilterChip, ProvenancePill, RoleTag } from "../components/primitives";
-import { useColumnSubgraph, useLineage, useOverride } from "../lib/queries";
+import { useColumnSubgraph, useLineage, useOverride, useRunState } from "../lib/queries";
 import { useUI } from "../store/ui";
 import type { GraphEdge, GraphNode, TableGraph, TableRole } from "../types";
 
-const LANES: { role: TableRole; title: string }[] = [
-  { role: "Source", title: "Sources" },
-  { role: "Intermediate", title: "Intermediate" },
-  { role: "Output", title: "Outputs" },
-];
 const TRANSFORMS = ["filter", "join", "aggregate", "derive", "rename", "cast", "passthrough", "union"];
 const ROLES = ["Source", "Intermediate", "Output"];
-const EXPORTS = ["svg", "pdf", "mermaid", "csv"];
+const EXPORTS = ["svg", "pdf", "mermaid", "drawio", "openlineage", "csv"];
 
 export function LineageTab() {
-  const { runId, selection, select, lowConfidenceOnly, toggleLowConfidence, expandedTables, toggleExpanded } =
-    useUI();
+  const {
+    runId,
+    selection,
+    select,
+    lowConfidenceOnly,
+    toggleLowConfidence,
+    modelFilter,
+    setModelFilter,
+  } = useUI();
   const { data: graph, isLoading } = useLineage(runId);
+  const { data: state } = useRunState(runId);
   const override = useOverride(runId ?? "");
   const [search, setSearch] = useState("");
 
@@ -35,25 +40,71 @@ export function LineageTab() {
   if (isLoading || !graph) return <div className="p-8 text-center text-sm text-muted">Loading…</div>;
 
   const lc = (c: string) => c === "Low";
+  // Phase 4D model filter: keep a table if the selected model produces or
+  // consumes it; keep an edge if it was authored by that model.
+  const inModel = (n: GraphNode) =>
+    !modelFilter ||
+    n.data.produced_by.includes(modelFilter) ||
+    n.data.consumed_by.includes(modelFilter);
   const nodes = graph.nodes.filter(
     (n) =>
+      inModel(n) &&
       (!lowConfidenceOnly || lc(n.data.confidence)) &&
       (!search || n.data.name.toLowerCase().includes(search.toLowerCase())),
   );
   const visibleIds = new Set(nodes.map((n) => n.id));
   const edges = graph.edges.filter(
-    (e) => visibleIds.has(e.source) && visibleIds.has(e.target),
+    (e) =>
+      visibleIds.has(e.source) &&
+      visibleIds.has(e.target) &&
+      (!modelFilter || e.data.model_id === modelFilter),
   );
 
   function doOverride(target: string, field: string, value: string) {
     override.mutate({ target, field, new: value });
   }
 
+  const nodesByLane = (role: TableRole) => nodes.filter((n) => n.data.role === role);
+  const laneCounts: Record<TableRole, number> = {
+    Source: nodesByLane("Source").length,
+    Intermediate: nodesByLane("Intermediate").length,
+    Output: nodesByLane("Output").length,
+  };
+
   return (
     <div className="flex gap-4">
       <div className="flex min-w-0 flex-1 flex-col gap-3">
+        <div
+          className="flex flex-wrap items-center gap-3 rounded border border-border bg-elev px-3 py-2 text-xs"
+          data-testid="lineage-summary"
+        >
+          <span className="font-semibold uppercase tracking-wide text-muted">Project lineage</span>
+          <span className="text-accent">
+            <span className="font-bold">{laneCounts.Source}</span> sources
+          </span>
+          <span className="text-purple">
+            <span className="font-bold">{laneCounts.Intermediate}</span> intermediate
+          </span>
+          <span className="text-green">
+            <span className="font-bold">{laneCounts.Output}</span> outputs
+          </span>
+          <span className="text-dim">· {edges.length} edges</span>
+          <span
+            className={`ml-auto ${graph.counts.pending_review ? "text-amber" : "text-dim"}`}
+            data-testid="lineage-pending-chip"
+          >
+            ⚠ {graph.counts.pending_review} pending review
+          </span>
+        </div>
+
         <div className="flex flex-wrap items-center gap-2">
-          <span className="text-xs text-muted">Scope: whole project</span>
+          {state && (
+            <ModelFilter
+              models={state.models}
+              value={modelFilter}
+              onChange={setModelFilter}
+            />
+          )}
           <input
             value={search}
             onChange={(e) => setSearch(e.target.value)}
@@ -69,54 +120,57 @@ export function LineageTab() {
           </div>
         </div>
 
-        <Card className="min-h-[360px]">
-          <div className="grid grid-cols-3 gap-3" data-testid="lineage-canvas">
-            {LANES.map((lane) => (
-              <div key={lane.role}>
-                <div className="mb-2 text-xs font-semibold uppercase tracking-wide text-muted">
-                  {lane.title}
-                </div>
-                <div className="flex flex-col gap-2">
-                  {nodes
-                    .filter((n) => n.data.role === lane.role)
-                    .map((n) => (
-                      <NodeCard
-                        key={n.id}
-                        node={n}
-                        runId={runId}
-                        selected={selection?.kind === "node" && selection.id === n.id}
-                        expanded={expandedTables.has(n.id)}
-                        onSelect={() => select({ kind: "node", id: n.id })}
-                        onToggle={() => toggleExpanded(n.id)}
-                      />
-                    ))}
-                </div>
+        {state ? (
+          <LineageCanvas
+            state={state}
+            nodes={nodes}
+            edges={edges}
+            selectedEdgeId={selection?.kind === "edge" ? selection.id : null}
+            onSelectNode={(id) => select({ kind: "node", id })}
+            onSelectEdge={(id) => select({ kind: "edge", id })}
+            renderNodeHeader={(n) => (
+              <div className="flex items-center gap-1">
+                <span className="mono truncate text-xs text-text">{n.data.name}</span>
+                <span className="ml-auto flex items-center">
+                  <ProvenancePill source={n.data.provenance} />
+                  <ConfidenceDot confidence={n.data.confidence} />
+                </span>
               </div>
-            ))}
-          </div>
+            )}
+          />
+        ) : (
+          <Card className="text-xs text-muted">Loading RunState…</Card>
+        )}
 
-          <div className="mt-4 border-t border-border-soft pt-2">
-            <div className="mb-1 text-xs font-semibold uppercase tracking-wide text-muted">Edges</div>
-            <ul className="flex flex-col gap-1" data-testid="edge-list">
-              {edges.map((e) => (
-                <EdgeRow
-                  key={e.id}
-                  edge={e}
-                  graph={graph}
-                  selected={selection?.kind === "edge" && selection.id === e.id}
-                  onSelect={() => select({ kind: "edge", id: e.id })}
-                />
-              ))}
-            </ul>
-          </div>
-
-          <div className="mt-3 text-xs text-muted" data-testid="lineage-footer">
-            {graph.counts.tables} tables · {graph.counts.column_edges} column edges ·{" "}
-            <span className={graph.counts.pending_review ? "text-amber" : ""}>
-              ⚠ {graph.counts.pending_review} pending review
-            </span>
-          </div>
-        </Card>
+        {/* Edge legend — the two-color scheme drawn on the SVG overlay. */}
+        <div
+          className="flex items-center gap-4 text-[10px] text-muted"
+          data-testid="lineage-legend"
+        >
+          <span className="flex items-center gap-1">
+            <svg width="20" height="6">
+              <path d="M0,3 L20,3" stroke="var(--color-dim, #5E6B86)" strokeWidth={1.4} />
+            </svg>
+            mechanical (derive · passthrough · rename · cast)
+          </span>
+          <span className="flex items-center gap-1">
+            <svg width="20" height="6">
+              <path d="M0,3 L20,3" stroke="var(--color-red, #F87171)" strokeWidth={1.4} />
+            </svg>
+            compositional (join · aggregate · filter · union)
+          </span>
+          <span className="flex items-center gap-1">
+            <svg width="20" height="6">
+              <path
+                d="M0,3 L20,3"
+                stroke="var(--color-dim, #5E6B86)"
+                strokeWidth={1}
+                strokeDasharray="4 3"
+              />
+            </svg>
+            table-level fallback (no column edge)
+          </span>
+        </div>
       </div>
 
       {selection?.kind === "node" && (
@@ -136,99 +190,6 @@ export function LineageTab() {
         />
       )}
     </div>
-  );
-}
-
-function NodeCard({
-  node,
-  runId,
-  selected,
-  expanded,
-  onSelect,
-  onToggle,
-}: {
-  node: GraphNode;
-  runId: string;
-  selected: boolean;
-  expanded: boolean;
-  onSelect: () => void;
-  onToggle: () => void;
-}) {
-  const { data: sub } = useColumnSubgraph(runId, expanded ? node.id : null);
-  return (
-    <div
-      data-testid={`node-${node.id}`}
-      onClick={onSelect}
-      className={
-        "cursor-pointer rounded border bg-elev p-2 " +
-        (selected ? "border-accent" : "border-border")
-      }
-    >
-      <div className="flex items-center gap-1">
-        <button
-          data-testid={`expand-${node.id}`}
-          onClick={(e) => {
-            e.stopPropagation();
-            onToggle();
-          }}
-          className="text-muted hover:text-text"
-        >
-          {expanded ? "▾" : "▸"}
-        </button>
-        <span className="mono truncate text-xs text-text">{node.data.name}</span>
-        <span className="ml-auto flex items-center">
-          <ProvenancePill source={node.data.provenance} />
-          <ConfidenceDot confidence={node.data.confidence} />
-        </span>
-      </div>
-      {expanded && sub && (
-        <ul className="mt-1 border-t border-border-soft pt-1 text-[11px]" data-testid={`columns-${node.id}`}>
-          {sub.columns.map((c) => (
-            <li key={c.id} className="mono text-muted">
-              {c.data.name}
-            </li>
-          ))}
-          {!sub.columns.length && <li className="text-muted">no columns</li>}
-        </ul>
-      )}
-    </div>
-  );
-}
-
-function EdgeRow({
-  edge,
-  graph,
-  selected,
-  onSelect,
-}: {
-  edge: GraphEdge;
-  graph: TableGraph;
-  selected: boolean;
-  onSelect: () => void;
-}) {
-  const name = (id: string) => graph.nodes.find((n) => n.id === id)?.data.name ?? id;
-  return (
-    <li>
-      <button
-        data-testid={`edge-${edge.id}`}
-        onClick={onSelect}
-        className={
-          "flex w-full items-center gap-2 rounded px-2 py-1 text-left text-xs " +
-          (selected ? "bg-elev text-text" : "text-dim hover:text-text")
-        }
-      >
-        <span className="mono truncate">
-          {name(edge.source)} → {name(edge.target)}
-        </span>
-        <span className="rounded bg-accent-soft px-1 text-accent">{edge.label}</span>
-        <span className="ml-auto flex items-center">
-          <ProvenancePill source={edge.data.provenance} />
-          {edge.data.review_status !== "Proposed" && (
-            <span className="ml-1 text-[10px] text-green">{edge.data.review_status}</span>
-          )}
-        </span>
-      </button>
-    </li>
   );
 }
 

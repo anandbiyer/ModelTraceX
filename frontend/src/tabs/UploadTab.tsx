@@ -4,12 +4,27 @@
  * the analysis-settings panel with a pre-flight token/cost estimate (D4/NFR-6),
  * and Analyze — which starts the orchestrator and streams per-model progress.
  */
-import { type ChangeEvent, useEffect, useRef, useState } from "react";
+import { type ChangeEvent, useEffect, useMemo, useRef, useState } from "react";
+import { useQueryClient } from "@tanstack/react-query";
 
 import { api, subscribeEvents } from "../api/client";
-import { Button, Card, FilterChip } from "../components/primitives";
+import { Button, Card, ConfidenceDot, FilterChip, StatusBadge } from "../components/primitives";
+import { PhaseSteps, ProgressBar } from "../components/ProgressBar";
+import { RecentRunsPanel } from "../components/RecentRunsPanel";
+import { keys, useRunState } from "../lib/queries";
 import { useUI } from "../store/ui";
 import type { Estimate, IngestView, RunConfig, SSEEvent } from "../types";
+
+type Phase = "idle" | "analyzing" | "completed" | "failed";
+
+function Metric({ label, value }: { label: string; value: number }) {
+  return (
+    <div className="rounded border border-border bg-elev px-3 py-2">
+      <div className="text-lg font-bold text-text">{value}</div>
+      <div className="text-xs text-muted">{label}</div>
+    </div>
+  );
+}
 
 const LANGS = ["SAS", "Python", "R", "VBA"];
 
@@ -20,7 +35,16 @@ export function UploadTab() {
   const [estimate, setEstimate] = useState<Estimate | null>(null);
   const [selected, setSelected] = useState<Set<number>>(new Set());
   const [progress, setProgress] = useState<SSEEvent[]>([]);
-  const [analyzing, setAnalyzing] = useState(false);
+  const [phase, setPhase] = useState<Phase>("idle");
+  const [errorMsg, setErrorMsg] = useState<string | null>(null);
+  const [showLog, setShowLog] = useState(false);
+  const analyzing = phase === "analyzing";
+  // Phase 4D bug fix: fetch RunState whenever runId is set, not just after a
+  // local analyze completes. Otherwise tab-switching unmounts the component,
+  // resets `phase` to "idle" on remount, and the Results card disappears
+  // even though the server still has the data.
+  const { data: runState } = useRunState(runId);
+  const queryClient = useQueryClient();
   const [dataHandling, setDataHandling] = useState<"local" | "cloud">("cloud");
   const [config, setConfig] = useState<RunConfig | null>(null);
   const fileInput = useRef<HTMLInputElement>(null);
@@ -85,26 +109,55 @@ export function UploadTab() {
   async function onAnalyze() {
     if (!runId) return;
     setProgress([]);
-    setAnalyzing(true);
+    setErrorMsg(null);
+    setPhase("analyzing");
     await api.analyze(runId);
     const stop = subscribeEvents(runId, (e) => {
       setProgress((p) => [...p, e]);
       if (e.type === "run_completed") {
         stop();
-        setAnalyzing(false);
-        setTab("Review");
+        setPhase("completed");
+        // Refresh the Recent runs panel so the just-finished run appears at top.
+        void queryClient.invalidateQueries({ queryKey: keys.runsList() });
       } else if (e.type === "run_failed") {
         stop();
-        setAnalyzing(false);
+        setPhase("failed");
+        setErrorMsg(e.error);
+        void queryClient.invalidateQueries({ queryKey: keys.runsList() });
       }
     });
   }
 
   const models = view?.models ?? [];
 
+  // Derive a live snapshot from the SSE stream for the progress bar.
+  const liveProgress = useMemo(() => {
+    let total = models.length || 0;
+    let completed = 0;
+    let currentLabel: string | null = null;
+    let currentStatus: string | null = null;
+    for (const e of progress) {
+      if (e.type === "run_started") {
+        total = e.total;
+      } else if (e.type === "model") {
+        total = e.total;
+        completed = e.completed;
+        if (e.status === "started") {
+          currentLabel = e.label;
+          currentStatus = "started";
+        } else {
+          currentLabel = e.label;
+          currentStatus = e.status;
+        }
+      }
+    }
+    return { total, completed, currentLabel, currentStatus };
+  }, [progress, models.length]);
+
   return (
     <div className="grid grid-cols-3 gap-4">
       <div className="col-span-2 flex flex-col gap-4">
+        <RecentRunsPanel />
         <Card>
           <div
             className="flex flex-col items-center gap-2 rounded border border-dashed border-border bg-elev py-8 text-center"
@@ -199,18 +252,101 @@ export function UploadTab() {
           </Card>
         )}
 
-        {progress.length > 0 && (
-          <Card>
-            <div className="mb-1 text-sm text-dim">Progress</div>
-            <ul className="text-xs text-muted" data-testid="progress-log">
-              {progress.map((e, i) => (
-                <li key={i} className="mono">
-                  {e.type === "model"
-                    ? `${e.label}: ${e.status} (${e.completed}/${e.total})`
-                    : e.type}
+        {(phase === "analyzing" || phase === "failed") && (
+          <Card data-testid="progress-card">
+            <div className="mb-2 flex items-center justify-between">
+              <div className="text-sm font-semibold text-text">
+                {phase === "failed" ? "Analysis failed" : "Analyzing project"}
+              </div>
+              <PhaseSteps current={phase === "failed" ? "failed" : "analyzing"} />
+            </div>
+            <ProgressBar
+              value={liveProgress.completed}
+              max={Math.max(liveProgress.total, 1)}
+              label={
+                phase === "failed"
+                  ? "halted"
+                  : liveProgress.currentLabel
+                    ? `Analyzing model ${Math.min(liveProgress.completed + 1, liveProgress.total)} of ${liveProgress.total} — ${liveProgress.currentLabel}`
+                    : "Starting…"
+              }
+              tone={phase === "failed" ? "red" : "accent"}
+            />
+            {errorMsg && (
+              <div className="mt-2 rounded border border-red/40 bg-red-soft px-2 py-1 text-xs text-red" data-testid="run-error">
+                {errorMsg}
+              </div>
+            )}
+            <button
+              onClick={() => setShowLog((v) => !v)}
+              className="mt-2 text-xs text-accent hover:underline"
+              data-testid="progress-log-toggle"
+            >
+              {showLog ? "Hide event log" : "Show event log"}
+            </button>
+            {showLog && (
+              <ul className="mt-1 max-h-48 overflow-auto text-xs text-muted" data-testid="progress-log">
+                {progress.map((e, i) => (
+                  <li key={i} className="mono">
+                    {e.type === "model"
+                      ? `${e.label}: ${e.status} (${e.completed}/${e.total})`
+                      : e.type}
+                  </li>
+                ))}
+              </ul>
+            )}
+          </Card>
+        )}
+
+        {/* Phase 4D bug fix: show the Results card whenever runState is available
+            and we're not actively analyzing — covers the just-completed case
+            AND the tab-switch-and-back case. */}
+        {!analyzing && runState && (
+          <Card data-testid="results-card">
+            <div className="mb-2 flex items-center justify-between">
+              <div className="text-sm font-semibold text-text">
+                {phase === "completed" ? "Run complete" : "Run summary"}
+              </div>
+              <PhaseSteps current="done" />
+            </div>
+
+            <div className="mb-3 grid grid-cols-4 gap-2" data-testid="results-metrics">
+              <Metric label="Models" value={runState.models.length} />
+              <Metric label="Tables" value={runState.tables.length} />
+              <Metric label="Edges" value={runState.table_edges.length} />
+              <Metric label="DQ rules" value={runState.dq_rules.length} />
+            </div>
+            <div className="mb-3 flex items-center gap-2 text-xs text-muted">
+              <span className="mono rounded border border-border bg-elev px-2 py-1 text-dim" data-testid="results-cost">
+                {runState.run.tokens.toLocaleString()} tok · ${runState.run.est_cost.toFixed(4)}
+              </span>
+              {runState.issues.length > 0 && (
+                <span className="text-amber" data-testid="results-issues">
+                  {runState.issues.length} issue(s) recorded
+                </span>
+              )}
+            </div>
+
+            <div className="mb-2 text-xs font-semibold uppercase tracking-wide text-muted">Per-model status</div>
+            <ul className="mb-3 flex flex-col gap-1 text-xs" data-testid="results-models">
+              {runState.models.map((m) => (
+                <li key={m.model_id} className="flex items-center gap-2 border-t border-border-soft py-1">
+                  <ConfidenceDot confidence={m.confidence} />
+                  <span className="mono truncate text-text">{m.label}</span>
+                  <StatusBadge status={m.status} />
+                  <span className="ml-auto mono text-muted">
+                    {(m.telemetry.tokens_in + m.telemetry.tokens_out).toLocaleString()} tok ·{" "}
+                    ${m.telemetry.est_cost.toFixed(4)}
+                  </span>
                 </li>
               ))}
             </ul>
+
+            <div className="flex flex-wrap gap-2">
+              <Button onClick={() => setTab("Review")} testid="cta-review">View Document →</Button>
+              <Button variant="secondary" onClick={() => setTab("Lineage")} testid="cta-lineage">View Lineage →</Button>
+              <Button variant="secondary" onClick={() => setTab("Data Quality")} testid="cta-dq">View DQ Rules →</Button>
+            </div>
           </Card>
         )}
       </div>

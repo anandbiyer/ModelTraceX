@@ -1,0 +1,32 @@
+# Render service definition — Phase 4 deploy (FastAPI backend).
+#
+# Render auto-detects this file on the first import; afterwards changes here
+# are picked up via "Sync" in the Render dashboard. Frontend lives on Vercel.
+services:
+  - type: web
+    name: modeltracex-api
+    runtime: docker
+    plan: free        # bump to "starter" ($7/mo) for always-on + persistent disk
+    region: oregon    # change to your closest region
+    branch: v2-rebuild
+    dockerfilePath: ./Dockerfile
+    healthCheckPath: /config
+    # Free tier has no disk — SQLite resets across redeploys. On Starter, uncomment:
+    # disk:
+    #   name: runs-db
+    #   mountPath: /data
+    #   sizeGB: 1
+    envVars:
+      - key: MODELTRACEX_PROVIDER
+        value: anthropic
+      - key: MODELTRACEX_MODEL
+        value: claude-sonnet-4-6
+      - key: MODELTRACEX_SECURITY_MODE
+        value: cloud
+      # Set the real values via the Render dashboard — do NOT commit secrets.
+      - key: MODELTRACEX_ANTHROPIC_API_KEY
+        sync: false
+      # Pin to the Vercel frontend origin once deployed; defaults to "*" for
+      # the first boot so health checks aren't blocked.
+      - key: MODELTRACEX_ALLOWED_ORIGINS
+        sync: false

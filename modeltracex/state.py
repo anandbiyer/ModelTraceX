@@ -234,6 +234,9 @@ class DQRule(BaseModel):
     source: Provenance = Provenance.HEURISTIC  # E/H/I only (R5)
     confidence: Confidence = Confidence.HIGH
     status: RuleStatus = RuleStatus.PROPOSED
+    # Models whose UsageObservations contributed to this rule (Phase 4D P4D-5
+    # follow-up: per-model DQ filter on the UI). Populated by ``infer_rules``.
+    model_ids: list[str] = Field(default_factory=list)
 
 
 class SourceSystem(BaseModel):

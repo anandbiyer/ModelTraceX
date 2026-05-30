@@ -160,13 +160,13 @@ def _candidate_view(session: RunSession) -> dict[str, object]:
 
 def create_app(settings: Settings | None = None, registry: RunRegistry | None = None) -> FastAPI:
     app = FastAPI(title="ModelTraceX", version="2.0.0-dev")
+    cfg = settings or get_settings()
     app.add_middleware(
         CORSMiddleware,
-        allow_origins=["*"],
+        allow_origins=cfg.allowed_origins,
         allow_methods=["*"],
         allow_headers=["*"],
     )
-    cfg = settings or get_settings()
     reg = registry or RunRegistry()
     app.state.settings = cfg
     app.state.registry = reg
@@ -189,6 +189,11 @@ def create_app(settings: Settings | None = None, registry: RunRegistry | None = 
             "provider": cfg.provider,
             "model": cfg.model,
         }
+
+    @app.get("/runs")
+    def list_runs(limit: int = 50) -> list[dict[str, object]]:
+        """Recent-runs feed (Phase 4D run history). Returns newest-first."""
+        return reg.list_summaries(limit=limit)
 
     @app.post("/runs")
     def create_run() -> dict[str, str]:
@@ -345,6 +350,8 @@ def create_app(settings: Settings | None = None, registry: RunRegistry | None = 
     def export(run_id: str, kind: str) -> FileResponse:
         session = _analyzed_or_409(_session_or_404(run_id))
         assert session.state is not None
+        if kind == "zip":
+            return _export_bundle(session)
         path = _export_file(session, kind)
         return FileResponse(path, filename=Path(path).name)
 
@@ -540,6 +547,54 @@ def _export_file(session: RunSession, kind: str) -> str:
         renderer.fmt = kind
         return renderer.render(LineageGraph(session.state), str(out_dir / "lineage"))
     raise HTTPException(status_code=404, detail=f"unknown export kind {kind!r}")
+
+
+def _export_bundle(session: RunSession) -> FileResponse:
+    """Bundle every export into a single ZIP for a one-click "Download Report".
+
+    Each individual exporter is best-effort: a failure (e.g. ``dot`` binary
+    absent for the SVG/PDF render) is skipped, not fatal. The bundle always
+    contains at least the DOCX, XLSX, and CSV — the deterministic core.
+    """
+    import zipfile
+
+    from modeltracex.exporters.csv_compat import CsvCompatExporter
+    from modeltracex.exporters.docx_report import DocxExporter
+    from modeltracex.exporters.xlsx_workbook import XlsxExporter
+    from modeltracex.lineage.drawio import DrawioExporter
+    from modeltracex.lineage.graph import LineageGraph
+    from modeltracex.lineage.openlineage import OpenLineageExporter
+    from modeltracex.lineage.render_graphviz import GraphvizRenderer
+    from modeltracex.lineage.render_mermaid import MermaidRenderer
+
+    assert session.state is not None
+    out_dir = Path(TemporaryDirectory(prefix=f"mtx_bundle_{session.run_id}_").name)
+    out_dir.mkdir(parents=True, exist_ok=True)
+    files: list[str] = []
+    graph = LineageGraph(session.state)
+    for fn in (
+        lambda: DocxExporter().export(session.state, str(out_dir)),
+        lambda: XlsxExporter().export(session.state, str(out_dir)),
+        lambda: CsvCompatExporter().export(session.state, str(out_dir)),
+        lambda: [MermaidRenderer().render(graph, str(out_dir / "lineage"))],
+        lambda: [GraphvizRenderer().render(graph, str(out_dir / "lineage"))],
+        lambda: OpenLineageExporter().export(session.state, str(out_dir)),
+        lambda: DrawioExporter().export(session.state, str(out_dir)),
+    ):
+        try:
+            files.extend(fn())
+        except Exception:  # noqa: BLE001 — best-effort bundling, never fatal
+            continue
+
+    bundle_path = str(out_dir / f"modeltracex_{session.run_id}.zip")
+    with zipfile.ZipFile(bundle_path, "w", zipfile.ZIP_DEFLATED) as zf:
+        for f in files:
+            zf.write(f, arcname=Path(f).name)
+    return FileResponse(
+        bundle_path,
+        filename=f"modeltracex_{session.run_id}.zip",
+        media_type="application/zip",
+    )
 
 
 __all__ = ["create_app", "get_provider"]

@@ -21,6 +21,7 @@ htmlcov/
 *.sqlite3
 /output/
 /runs/
+/test_outputs/
 output.txt
 lineage_table.csv
 lineage_clustered.png

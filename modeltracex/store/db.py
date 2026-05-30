@@ -143,6 +143,69 @@ class RunStore:
             )
             return list(session.execute(stmt).scalars().all())
 
+    def list_runs(self, limit: int = 50) -> list[dict[str, object]]:
+        """List persisted runs as small summary dicts (Phase 4D run history).
+
+        Returns the most recently-saved runs first, capped at ``limit``. Counts
+        are derived from the flattened ``entities`` index so we don't deserialize
+        every blob. This is cheap enough to call on every Upload-tab mount and
+        small enough to fit in a TanStack Query cache.
+        """
+        with Session(self._engine) as session:
+            run_rows = list(
+                session.execute(select(RunRow).order_by(RunRow.timestamp.desc()).limit(limit))
+                .scalars()
+                .all()
+            )
+            summaries: list[dict[str, object]] = []
+            for r in run_rows:
+                counts = {
+                    "models": 0,
+                    "tables": 0,
+                    "table_edges": 0,
+                    "column_edges": 0,
+                    "dq_rules": 0,
+                    "issues": 0,
+                }
+                for kind, _attr, _id_attr in _FLATTENED:
+                    key = (
+                        "models"
+                        if kind == "model"
+                        else "tables"
+                        if kind == "table"
+                        else "table_edges"
+                        if kind == "table_edge"
+                        else "column_edges"
+                        if kind == "column_edge"
+                        else "dq_rules"
+                        if kind == "dq_rule"
+                        else "issues"
+                        if kind == "issue"
+                        else None
+                    )
+                    if key is None:
+                        continue
+                    n = session.execute(
+                        select(EntityRow.id).where(
+                            EntityRow.run_id == r.run_id, EntityRow.kind == kind
+                        )
+                    ).all()
+                    counts[key] = len(n)
+                summaries.append(
+                    {
+                        "run_id": r.run_id,
+                        "timestamp": r.timestamp,
+                        "tool_version": r.tool_version,
+                        "provider": r.provider,
+                        "model": r.model,
+                        "tokens": r.tokens,
+                        "est_cost": r.est_cost,
+                        "security_mode": r.security_mode,
+                        "counts": counts,
+                    }
+                )
+            return summaries
+
     def log_override(self, run_id: str, override: Override) -> None:
         with Session(self._engine) as session, session.begin():
             session.add(

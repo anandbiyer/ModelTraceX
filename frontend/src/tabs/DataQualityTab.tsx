@@ -3,6 +3,7 @@
  * chips + the Sheet-7 rule register with inline code evidence and inline accept /
  * reject (same override pattern as the Lineage inspector, generalized; NFR-5).
  */
+import { ModelFilter } from "../components/ModelFilter";
 import { Card, ConfidenceDot, FilterChip, ProvenancePill } from "../components/primitives";
 import { useOverride, useRunState } from "../lib/queries";
 import { useUI } from "../store/ui";
@@ -34,24 +35,39 @@ function Metric({ label, value }: { label: string; value: number }) {
 }
 
 export function DataQualityTab() {
-  const { runId, dimensionFilter, setDimensionFilter, highSeverityOnly, toggleHighSeverity } = useUI();
+  const {
+    runId,
+    dimensionFilter,
+    setDimensionFilter,
+    highSeverityOnly,
+    toggleHighSeverity,
+    modelFilter,
+    setModelFilter,
+    sharedOnly,
+    toggleSharedOnly,
+  } = useUI();
   const { data: state, isLoading } = useRunState(runId);
   const override = useOverride(runId ?? "");
 
   if (!runId) return <div className="p-8 text-center text-sm text-muted">Analyze a project first.</div>;
   if (isLoading || !state) return <div className="p-8 text-center text-sm text-muted">Loading…</div>;
 
+  // Phase 4D model filter: rules carry the list of contributing model_ids,
+  // populated by infer_rules. If model_ids is empty (older runs predating the
+  // backend field), we don't filter that rule out — fail open.
   const rules = state.dq_rules;
   const filtered = rules.filter(
     (r) =>
+      (!modelFilter || r.model_ids.length === 0 || r.model_ids.includes(modelFilter)) &&
       (!dimensionFilter || r.dimension === dimensionFilter) &&
-      (!highSeverityOnly || r.severity === "High"),
+      (!highSeverityOnly || r.severity === "High") &&
+      (!sharedOnly || r.model_ids.length >= 2),
   );
   const metrics = {
-    candidate: rules.length,
-    high: rules.filter((r) => r.severity === "High").length,
-    pending: rules.filter((r) => r.status === "Proposed").length,
-    accepted: rules.filter((r) => r.status === "Accepted").length,
+    candidate: filtered.length,
+    high: filtered.filter((r) => r.severity === "High").length,
+    pending: filtered.filter((r) => r.status === "Proposed").length,
+    accepted: filtered.filter((r) => r.status === "Accepted").length,
   };
 
   function setStatus(rule: DQRule, status: "Accepted" | "Rejected") {
@@ -67,6 +83,10 @@ export function DataQualityTab() {
         <Metric label="Accepted" value={metrics.accepted} />
       </div>
 
+      <div className="flex flex-wrap items-center gap-2">
+        <ModelFilter models={state.models} value={modelFilter} onChange={setModelFilter} />
+      </div>
+
       <div className="flex flex-wrap gap-1">
         <FilterChip label="All dims" active={!dimensionFilter} onClick={() => setDimensionFilter(null)} />
         {DIMENSIONS.map((d) => (
@@ -78,6 +98,15 @@ export function DataQualityTab() {
           />
         ))}
         <FilterChip label="High severity" active={highSeverityOnly} onClick={toggleHighSeverity} />
+        <FilterChip
+          label="Shared (≥ 2 models)"
+          active={sharedOnly}
+          onClick={toggleSharedOnly}
+        />
+      </div>
+      <div className="text-[11px] text-muted" data-testid="dq-rule-counts">
+        Showing {filtered.length} of {rules.length} rules
+        {highSeverityOnly && <> · High severity only (toggle the chip for all)</>}
       </div>
 
       <Card>
@@ -96,7 +125,20 @@ export function DataQualityTab() {
           <tbody data-testid="rule-register">
             {filtered.map((r) => (
               <tr key={r.rule_id} className="border-t border-border-soft align-top">
-                <td className="mono text-text">{r.element}</td>
+                <td className="mono text-text">
+                  <div className="flex items-center gap-1.5">
+                    <span className="truncate">{r.element}</span>
+                    {r.model_ids.length > 1 && (
+                      <span
+                        className="rounded border border-accent/40 bg-accent-soft px-1 py-0.5 text-[9px] font-semibold uppercase text-accent"
+                        title={`Used by ${r.model_ids.length} models: ${r.model_ids.slice(0, 5).join(", ")}${r.model_ids.length > 5 ? ", …" : ""}`}
+                        data-testid={`rule-shared-${r.rule_id}`}
+                      >
+                        × {r.model_ids.length} models
+                      </span>
+                    )}
+                  </div>
+                </td>
                 <td>
                   <span className={`rounded px-1.5 py-0.5 ${DIM_COLOR[r.dimension] ?? "text-dim"}`}>
                     {r.dimension}

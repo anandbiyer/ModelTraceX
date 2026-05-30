@@ -9,6 +9,7 @@ export default defineConfig({
     port: 5173,
     proxy: {
       "/runs": { target: "http://localhost:8000", changeOrigin: true },
+      "/config": { target: "http://localhost:8000", changeOrigin: true },
     },
   },
 });

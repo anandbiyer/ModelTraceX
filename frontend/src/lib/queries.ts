@@ -16,6 +16,7 @@ export const keys = {
   state: (id: string) => ["state", id] as const,
   lineage: (id: string) => ["lineage", id] as const,
   columns: (id: string, tableId: string) => ["columns", id, tableId] as const,
+  runsList: () => ["runs", "list"] as const,
 };
 
 export function useRunState(runId: string | null, enabled = true) {
@@ -23,6 +24,17 @@ export function useRunState(runId: string | null, enabled = true) {
     queryKey: keys.state(runId ?? ""),
     queryFn: () => api.state(runId!),
     enabled: !!runId && enabled,
+  });
+}
+
+/** Recent-runs feed for the Upload-tab history panel (Phase 4D P4D-8). */
+export function useRunsList() {
+  return useQuery({
+    queryKey: keys.runsList(),
+    queryFn: () => api.listRuns(50),
+    // Slightly stale-while-revalidate: keep the list snappy on tab re-mount,
+    // refresh in the background.
+    staleTime: 15_000,
   });
 }
 

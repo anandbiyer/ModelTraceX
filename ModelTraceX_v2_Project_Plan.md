@@ -27,8 +27,9 @@
 | Phase 2 — Lineage + UI | P2-1..11, P2-T1..6 | 17 / 17 | ✅ Done (2026-05-27) |
 | Phase 3 — Chat + Scale + Languages | P3-1..10, P3-T1..6 | 16 / 16 | ✅ Done (2026-05-28) |
 | Phase 4 — Interop + Sensitive Hardening | P4-1..7, P4-T1..6 | 13 / 13 | ✅ Done (2026-05-29) |
+| Phase 4D — Deployment & UAT | P4D-1..6 | 0 / 6 | In Progress |
 | Continuous Testing (cross-cutting) | CT-1..6 | 0 / 6 | Not Started |
-| **Total** | | **95 / 101** | **In Progress** |
+| **Total** | | **95 / 107** | **In Progress** |
 
 ---
 
@@ -178,6 +179,21 @@
 | P4-T4 | Retention tests — local mode persists no source bodies unless retain_source=true; logs contain no code/PII | ✅ Done | `tests/test_phase4_retention.py`: hand-built state covers all 4 evidence-bearing fields; cloud-mode preserved; local+retain=false scrubs all 4 + emits audit Issue; local+retain=true keeps everything; persisted state via `RunStore` confirms `amount/2` and `sum(amount_net)` absent from the blob. |
 | P4-T5 | draw.io export test — XML opens / round-trips structurally | ✅ Done | `tests/test_phase4_drawio.py`: `ET.parse` round-trips; vertex ids ⊆ emitted = `{table_id}`, edge ids ⊆ emitted = `{edge_id}`; 3 role lanes labelled Source/Intermediate/Output. |
 | P4-T6 | Local-provider conformance — conformance suite passes against LocalProvider (mocked OpenAI-compatible endpoint) | ✅ Done | `tests/test_phase4_local_provider.py`: `httpx.MockTransport` shapes a canned OpenAI-shaped response, asserts `complete_json` → `LLMResult` w/ tokens_in/out + zero cost; non-loopback URL raises; local+local provider passes the egress guard; local+anthropic raises. |
+
+---
+
+## Phase 4D — Deployment & UAT
+
+**Exit:** `v2-rebuild` pushed to `github/v2-rebuild` after UAT sign-off on the sample-pack outputs; deploy scaffolding (Vercel + Render) committed.
+
+| ID | Activity | Status | Notes |
+|---|---|---|---|
+| P4D-1 | CLI export parity — `run_project` emits Graphviz SVG/PDF, OpenLineage JSONL, and draw.io XML alongside existing DOCX/XLSX/CSV/Mermaid (closes the API-vs-CLI export-set gap). | In Progress | Phase 4 added the three exporters to the API path only; CLI needs them too so static lineage is available without spinning up the UI. ~10 lines in `modeltracex/cli.py` `run_project`, each call wrapped in `try/except` like the existing Mermaid render. |
+| P4D-2 | Sample-pack UAT — live Anthropic run on `tests/acceptance/sample_pack/{chained,sas,python}` (26 files total); verify DOCX opens in Word and lineage SVG renders. | Not Started | Expected wall-clock ~3–5 min; expected cost ~$0.40–$0.80 at claude-sonnet-4-6 rates. Outputs land in `test_outputs/` (gitignored). |
+| P4D-3 | UI walk-through against the chained pack; smoke-test Upload→Review→Lineage→DataQuality→Chat; judge lineage canvas polish. | Not Started | `uvicorn modeltracex.api:create_app --factory` + `npm --prefix frontend run dev` → `http://localhost:5173`. Quality bar: lanes clear, edge labels readable, inspector populates, column expansion produces no orphan edges, downloaded SVG matches on-screen. |
+| P4D-4 | **[CONDITIONAL]** Lineage polish iteration — bounded to `render_graphviz.py` / `LineageTab.tsx` / `docx_report.py` if UAT surfaces visual issues. | Not Started | Triggered only if Stage 3 evaluator flags polish gaps. Each loop scoped to one file; re-runs the affected project, not the whole gate. |
+| P4D-5 | Vercel + Render deploy scaffolding — `Dockerfile`, `render.yaml`, `vercel.json`, `frontend/.env.example`, `vite-env.d.ts`, CORS allow-list (`Settings.allowed_origins`), frontend env-based API base URL, deployment guide section. | Not Started | Code already prepared this session and uncommitted in the working tree; this row tracks the commit (not a re-do). |
+| P4D-6 | **[EXIT]** Push `v2-rebuild` to `github/v2-rebuild` after UAT sign-off; HF Space `origin` remains untouched. | Not Started | Two commits land first: (a) CLI parity + tracker, (b) deploy scaffolding. Then a single `git push github v2-rebuild` closes the phase. |
 
 ---
 

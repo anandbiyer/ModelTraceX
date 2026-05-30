@@ -86,7 +86,14 @@ def _ingest_paths(paths: list[str]) -> list:
 def run_project(
     paths: list[str], out_dir: str, provider: LLMProvider | None = None
 ) -> tuple[RunState, list[str]]:
-    """Headless: ingest -> analyze -> persist -> export (DOCX/XLSX/CSV/Mermaid)."""
+    """Headless: ingest -> analyze -> persist -> export.
+
+    Emits DOCX (Part A), XLSX (Part B, 9 sheets), legacy CSV, Mermaid lineage
+    text, Graphviz SVG/PDF lineage, OpenLineage RunEvents (NFR-8), and draw.io
+    XML — full parity with the API export endpoint (Phase 4D P4D-1). Any one
+    of the lineage/interop exporters that fails (e.g. missing `dot` binary)
+    is logged and skipped; the run still produces every other artifact.
+    """
     from pathlib import Path
 
     from modeltracex.analysis.orchestrator import analyze_run
@@ -94,7 +101,10 @@ def run_project(
     from modeltracex.exporters.docx_report import DocxExporter
     from modeltracex.exporters.xlsx_workbook import XlsxExporter
     from modeltracex.ingestion import assemble_models
+    from modeltracex.lineage.drawio import DrawioExporter
     from modeltracex.lineage.graph import LineageGraph
+    from modeltracex.lineage.openlineage import OpenLineageExporter
+    from modeltracex.lineage.render_graphviz import GraphvizRenderer
     from modeltracex.lineage.render_mermaid import MermaidRenderer
     from modeltracex.llm.provider import build_provider
     from modeltracex.security import default_redactor, scrub_for_retention
@@ -111,12 +121,31 @@ def run_project(
 
     Path(out_dir).mkdir(parents=True, exist_ok=True)
     RunStore(str(Path(out_dir) / "runs.db")).save(state)
+    print(f"  run_id: {state.run.run_id}")
 
+    graph = LineageGraph(state)
     outputs: list[str] = []
     outputs += DocxExporter().export(state, out_dir)
     outputs += XlsxExporter().export(state, out_dir)
     outputs += CsvCompatExporter().export(state, out_dir)
-    outputs.append(MermaidRenderer().render(LineageGraph(state), str(Path(out_dir) / "lineage")))
+
+    lineage_stem = str(Path(out_dir) / "lineage")
+    try:
+        outputs.append(MermaidRenderer().render(graph, lineage_stem))
+    except Exception as exc:  # noqa: BLE001 — exporter failures should not stall the run
+        print(f"  ! mermaid export skipped: {exc}")
+    try:
+        outputs.append(GraphvizRenderer().render(graph, lineage_stem))
+    except Exception as exc:  # noqa: BLE001
+        print(f"  ! graphviz SVG/PDF export skipped: {exc}")
+    try:
+        outputs += OpenLineageExporter().export(state, out_dir)
+    except Exception as exc:  # noqa: BLE001
+        print(f"  ! OpenLineage export skipped: {exc}")
+    try:
+        outputs += DrawioExporter().export(state, out_dir)
+    except Exception as exc:  # noqa: BLE001
+        print(f"  ! draw.io export skipped: {exc}")
     return state, outputs
 
 

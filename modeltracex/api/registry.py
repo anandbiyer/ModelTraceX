@@ -126,6 +126,57 @@ class RunRegistry:
         with self._lock:
             return self._runs.get(run_id)
 
+    def list_summaries(self, limit: int = 50) -> list[dict[str, object]]:
+        """Recent-runs feed for the Upload-tab history panel (P4D-8).
+
+        Surfaces every persisted run that lives in the per-session ``RunStore``s
+        plus the currently-active in-memory sessions that haven't yet finished.
+        In-memory entries get a synthetic summary (zero counts) so the
+        analyze-in-flight case still shows up. The persisted entries are
+        deduped against the in-memory ones by run_id (the live row wins, so a
+        re-render mid-analysis stays consistent with the SSE stream).
+        """
+        with self._lock:
+            live = list(self._runs.values())
+        seen: set[str] = set()
+        summaries: list[dict[str, object]] = []
+        for session in live:
+            if session.state is None:
+                summaries.append(
+                    {
+                        "run_id": session.run_id,
+                        "timestamp": "",
+                        "tool_version": "",
+                        "provider": "",
+                        "model": "",
+                        "tokens": 0,
+                        "est_cost": 0.0,
+                        "security_mode": "",
+                        "status": session.status,
+                        "counts": {
+                            "models": len(session.candidates),
+                            "tables": 0,
+                            "table_edges": 0,
+                            "column_edges": 0,
+                            "dq_rules": 0,
+                            "issues": 0,
+                        },
+                    }
+                )
+                seen.add(session.run_id)
+                continue
+            persisted = session.store.list_runs(limit=limit)
+            for row in persisted:
+                row_id = str(row["run_id"])
+                if row_id in seen:
+                    continue
+                row["status"] = session.status if row_id == session.run_id else "done"
+                summaries.append(row)
+                seen.add(row_id)
+        # Newest first; stable across re-render.
+        summaries.sort(key=lambda r: str(r.get("timestamp") or ""), reverse=True)
+        return summaries[:limit]
+
 
 __all__ = [
     "CandidateModel",

@@ -3,12 +3,57 @@
  * "Modelis" suite wordmark + app switcher (MVA · ModelTraceX) express two sibling
  * apps under one suite; the run context + provider/security badge bind to RunMeta.
  */
-import type { ReactNode } from "react";
+import { type ReactNode, useState } from "react";
 
+import { api } from "../api/client";
 import { type Tab, useUI } from "../store/ui";
 import { useRunState } from "../lib/queries";
 
 const TABS: Tab[] = ["Upload", "Review", "Lineage", "Data Quality", "Chat"];
+
+const DOWNLOADS: { kind: string; label: string; hint: string }[] = [
+  { kind: "zip", label: "Everything (ZIP)", hint: "DOCX + XLSX + lineage + OL + draw.io" },
+  { kind: "docx", label: "Model Document (DOCX)", hint: "Part A, 13 sections per model" },
+  { kind: "xlsx", label: "Lineage Workbook (XLSX)", hint: "Part B, 9 sheets" },
+  { kind: "svg", label: "Lineage Diagram (SVG)", hint: "Graphviz; .gv fallback if dot is absent" },
+  { kind: "drawio", label: "Lineage Diagram (draw.io)", hint: "Open at app.diagrams.net" },
+  { kind: "mermaid", label: "Lineage (Mermaid text)", hint: "For embedding in markdown" },
+  { kind: "openlineage", label: "OpenLineage events (JSONL)", hint: "Load into Marquez/DataHub" },
+];
+
+function DownloadMenu({ runId }: { runId: string }) {
+  const [open, setOpen] = useState(false);
+  return (
+    <div className="relative">
+      <button
+        onClick={() => setOpen((v) => !v)}
+        className="rounded border border-accent bg-accent-soft px-2 py-1 text-xs font-semibold text-accent hover:brightness-110"
+        data-testid="download-menu"
+      >
+        ↓ Download Report
+      </button>
+      {open && (
+        <div
+          className="absolute right-0 z-20 mt-1 flex w-72 flex-col rounded border border-border bg-panel p-1 text-xs shadow-elev"
+          data-testid="download-menu-list"
+        >
+          {DOWNLOADS.map((d) => (
+            <a
+              key={d.kind}
+              href={api.exportUrl(runId, d.kind)}
+              className="rounded px-2 py-1.5 hover:bg-elev"
+              data-testid={`download-${d.kind}`}
+              onClick={() => setOpen(false)}
+            >
+              <div className="text-text">{d.label}</div>
+              <div className="text-[10px] text-muted">{d.hint}</div>
+            </a>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
 
 export function AppShell({ children }: { children: ReactNode }) {
   const { tab, setTab, runId } = useUI();
@@ -49,6 +94,7 @@ export function AppShell({ children }: { children: ReactNode }) {
         >
           {meta ? `${meta.llm_provider} · ${meta.security_mode} mode` : "Claude · cloud mode"}
         </span>
+        {runId && state && <DownloadMenu runId={runId} />}
       </header>
 
       <nav className="flex gap-4 border-b border-border-soft px-4">

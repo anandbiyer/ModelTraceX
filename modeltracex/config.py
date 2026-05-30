@@ -76,6 +76,11 @@ class Settings(BaseSettings):
     db_path: str = "modeltracex.db"
     tool_version: str = "2.0.0-dev"
 
+    # --- HTTP (Phase 4 deploy) ---
+    # CORS allow-list (NFR-2). ``["*"]`` is the dev default; production must
+    # narrow this to the deployed frontend origin (e.g. the Vercel URL).
+    allowed_origins: list[str] = Field(default_factory=lambda: ["*"])
+
 
 def get_settings() -> Settings:
     """Load settings from the environment / ``.env``."""
