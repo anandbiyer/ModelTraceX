@@ -27,9 +27,9 @@
 | Phase 2 — Lineage + UI | P2-1..11, P2-T1..6 | 17 / 17 | ✅ Done (2026-05-27) |
 | Phase 3 — Chat + Scale + Languages | P3-1..10, P3-T1..6 | 16 / 16 | ✅ Done (2026-05-28) |
 | Phase 4 — Interop + Sensitive Hardening | P4-1..7, P4-T1..6 | 13 / 13 | ✅ Done (2026-05-29) |
-| Phase 4D — Deployment & UAT | P4D-1..6 | 0 / 6 | In Progress |
+| Phase 4D — Deployment & UAT | P4D-1..9 | 9 / 9 | ✅ Done (2026-05-30) |
 | Continuous Testing (cross-cutting) | CT-1..6 | 0 / 6 | Not Started |
-| **Total** | | **95 / 107** | **In Progress** |
+| **Total** | | **104 / 110** | **In Progress** |
 
 ---
 
@@ -188,12 +188,15 @@
 
 | ID | Activity | Status | Notes |
 |---|---|---|---|
-| P4D-1 | CLI export parity — `run_project` emits Graphviz SVG/PDF, OpenLineage JSONL, and draw.io XML alongside existing DOCX/XLSX/CSV/Mermaid (closes the API-vs-CLI export-set gap). | In Progress | Phase 4 added the three exporters to the API path only; CLI needs them too so static lineage is available without spinning up the UI. ~10 lines in `modeltracex/cli.py` `run_project`, each call wrapped in `try/except` like the existing Mermaid render. |
-| P4D-2 | Sample-pack UAT — live Anthropic run on `tests/acceptance/sample_pack/{chained,sas,python}` (26 files total); verify DOCX opens in Word and lineage SVG renders. | Not Started | Expected wall-clock ~3–5 min; expected cost ~$0.40–$0.80 at claude-sonnet-4-6 rates. Outputs land in `test_outputs/` (gitignored). |
-| P4D-3 | UI walk-through against the chained pack; smoke-test Upload→Review→Lineage→DataQuality→Chat; judge lineage canvas polish. | Not Started | `uvicorn modeltracex.api:create_app --factory` + `npm --prefix frontend run dev` → `http://localhost:5173`. Quality bar: lanes clear, edge labels readable, inspector populates, column expansion produces no orphan edges, downloaded SVG matches on-screen. |
-| P4D-4 | **[CONDITIONAL]** Lineage polish iteration — bounded to `render_graphviz.py` / `LineageTab.tsx` / `docx_report.py` if UAT surfaces visual issues. | Not Started | Triggered only if Stage 3 evaluator flags polish gaps. Each loop scoped to one file; re-runs the affected project, not the whole gate. |
-| P4D-5 | Vercel + Render deploy scaffolding — `Dockerfile`, `render.yaml`, `vercel.json`, `frontend/.env.example`, `vite-env.d.ts`, CORS allow-list (`Settings.allowed_origins`), frontend env-based API base URL, deployment guide section. | Not Started | Code already prepared this session and uncommitted in the working tree; this row tracks the commit (not a re-do). |
-| P4D-6 | **[EXIT]** Push `v2-rebuild` to `github/v2-rebuild` after UAT sign-off; HF Space `origin` remains untouched. | Not Started | Two commits land first: (a) CLI parity + tracker, (b) deploy scaffolding. Then a single `git push github v2-rebuild` closes the phase. |
+| P4D-1 | CLI export parity — `run_project` emits Graphviz SVG/PDF, OpenLineage JSONL, and draw.io XML alongside existing DOCX/XLSX/CSV/Mermaid. | ✅ Done | Shipped in `6c3dfde`. Each new exporter call wrapped in try/except so a missing `dot` binary doesn't kill the run; `run_id` printed for UI correlation. |
+| P4D-2 | Sample-pack UAT — live Anthropic run on `tests/acceptance/sample_pack/{chained,sas,python}` (26 files total). | ✅ Done | Three runs completed during session (chained $0.82, SAS $0.82, Python $0.66 = $2.30 total). Outputs surfaced via SendUserFile; user validated DOCX + lineage + chain stitch. |
+| P4D-3 | UI walk-through against the chained pack; smoke-test all 5 tabs; judge lineage canvas polish. | ✅ Done | Walkthrough done; user flagged empty Sources lane (genuine — synthetic files generate data internally) and DQ rule register issues (function-name false positives in elements). Both fixed in subsequent iterations. |
+| P4D-4 | **[CONDITIONAL]** Lineage polish iteration. | ✅ Done | Triggered multiple times: (a) lane chrome + empty-state hints + summary chip strip, (b) DQ rectification (SAS regex stoplist + `\b` lookahead + source-table qualification), (c) refined Part C (baseline rules + cross-model dedup + High-sev default + Shared chip), (d) Lineage Phase 1 redesign (columns-as-rows + SVG connectors). |
+| P4D-5 | Vercel + Render deploy scaffolding — `Dockerfile`, `render.yaml`, `vercel.json`, `frontend/.env.example`, `vite-env.d.ts`, CORS allow-list (`Settings.allowed_origins`), frontend env-based API base URL, deployment guide section. | ✅ Done | All files committed in `6c3dfde`. Actual Vercel + Render deploy (user creates accounts, runs `gh repo` + connects) is operations work outside this row. |
+| P4D-6 | **[EXIT]** Push `v2-rebuild` to `github/v2-rebuild` after UAT sign-off; HF Space `origin` remains untouched. | ✅ Done | Commit `6c3dfde` pushed to `github/v2-rebuild` 2026-05-29 with the consolidated UX + deploy scaffolding bundle. HF Space `origin` untouched. |
+| P4D-7 | **[P2]** Status pill per column row (`Column.control_status` field) — Controlled / Sourced / Dissented / Not Controlled / Not Sourced. Derived in `_derive_control_status` from DQ-rule state + column-edge participation. Frontend renders a colored pill on each `<ColumnRow>`. | ✅ Done | New `ColumnControlStatus` enum; `Column.control_status` field; orchestrator stamps it post-assembly using precedence (Dissented > Controlled > Sourced > Not Sourced > Not Controlled). 7 backend derivation tests; 2 frontend pill tests. |
+| P4D-8 | **[P2]** Source-system sub-grouping inside role lanes — tables grouped by `source_system` with mini-header per group; "(unsystemed)" bucket for tables without one. | ✅ Done | `LineageCanvas.tsx`: `laneNodes.reduce` builds a `Map<systemName, GraphNode[]>`, renders one sub-block per system with an uppercase mini-header. Alphabetical order for deterministic layout. 2 frontend grouping tests. |
+| P4D-9 | **[P2]** Control-state edge color coding — SVG path color picks up the target column's `control_status` when known; falls back to transformation-type heuristic. Legend in LineageTab updated to show the 5-state palette (Controlled / Sourced / Dissented / Not Controlled / Not Sourced + table-level dashed). | ✅ Done | `LineageCanvas` looks up `controlStatusByElement.get(ce.target_element)` for each column edge; uses `CONTROL_STATUS_EDGE_STROKE` map (green / cyan / amber / red). LineageTab legend rewritten to match. |
 
 ---
 

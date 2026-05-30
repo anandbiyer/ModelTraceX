@@ -142,22 +142,37 @@ export function LineageTab() {
           <Card className="text-xs text-muted">Loading RunState…</Card>
         )}
 
-        {/* Edge legend — the two-color scheme drawn on the SVG overlay. */}
+        {/* Edge legend — control-state colors (Phase 4D-P2) override the
+            transformation-type heuristic when the target column has a
+            derived control_status. */}
         <div
-          className="flex items-center gap-4 text-[10px] text-muted"
+          className="flex flex-wrap items-center gap-x-4 gap-y-1 text-[10px] text-muted"
           data-testid="lineage-legend"
         >
+          <span className="font-semibold uppercase tracking-wide text-dim">Edge color</span>
           <span className="flex items-center gap-1">
             <svg width="20" height="6">
-              <path d="M0,3 L20,3" stroke="var(--color-dim, #5E6B86)" strokeWidth={1.4} />
+              <path d="M0,3 L20,3" stroke="var(--color-green, #4ADE80)" strokeWidth={1.6} />
             </svg>
-            mechanical (derive · passthrough · rename · cast)
+            Controlled
           </span>
           <span className="flex items-center gap-1">
             <svg width="20" height="6">
-              <path d="M0,3 L20,3" stroke="var(--color-red, #F87171)" strokeWidth={1.4} />
+              <path d="M0,3 L20,3" stroke="var(--color-accent, #22D3EE)" strokeWidth={1.6} />
             </svg>
-            compositional (join · aggregate · filter · union)
+            Sourced
+          </span>
+          <span className="flex items-center gap-1">
+            <svg width="20" height="6">
+              <path d="M0,3 L20,3" stroke="var(--color-amber, #FBBF24)" strokeWidth={1.6} />
+            </svg>
+            Dissented
+          </span>
+          <span className="flex items-center gap-1">
+            <svg width="20" height="6">
+              <path d="M0,3 L20,3" stroke="var(--color-red, #F87171)" strokeWidth={1.6} />
+            </svg>
+            Not Controlled / Not Sourced
           </span>
           <span className="flex items-center gap-1">
             <svg width="20" height="6">
@@ -168,7 +183,7 @@ export function LineageTab() {
                 strokeDasharray="4 3"
               />
             </svg>
-            table-level fallback (no column edge)
+            table-level fallback
           </span>
         </div>
       </div>

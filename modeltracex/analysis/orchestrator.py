@@ -37,6 +37,7 @@ from modeltracex.security.redactor import RedactionSummary, Redactor
 from modeltracex.state import (
     Calculation,
     Column,
+    ColumnControlStatus,
     ColumnEdge,
     Confidence,
     Issue,
@@ -45,6 +46,7 @@ from modeltracex.state import (
     ModelStatus,
     ModelTelemetry,
     Provenance,
+    RuleStatus,
     RunMeta,
     RunState,
     SourceSystem,
@@ -333,6 +335,7 @@ def assemble_run_state(
     # and stamps cross-model attribution from produced_by ∪ consumed_by (P4D refined Part C).
     state.dq_rules = infer_rules(state.usage_observations, tables=state.tables)
     _derive_source_systems(state)
+    _derive_control_status(state)  # Phase 4D-P2: governance pill per column.
     return state
 
 
@@ -526,6 +529,49 @@ def _derive_source_systems(state: RunState) -> None:
     state.source_systems = [
         SourceSystem(name=name, tables=sorted(tids)) for name, tids in sorted(systems.items())
     ]
+
+
+def _derive_control_status(state: RunState) -> None:
+    """Stamp each ``Column.control_status`` from DQ-rule + column-edge state.
+
+    Phase 4D-P2: lets the Lineage canvas render a governance pill per column
+    matching the reference image. Derivation precedence (first match wins):
+
+    1. **Dissented** — any DQ rule on the column was reviewed-and-rejected.
+    2. **Controlled** — any DQ rule on the column was reviewed-and-accepted.
+    3. **Sourced** — at least one column edge has the column as source or
+       target (i.e. it participates in known lineage).
+    4. **Not Sourced** — the column lives in an Output table but no column
+       edge touches it (orphan output measure).
+    5. **Not Controlled** — fallback for everything else (proposed-only or
+       absent DQ rules; no lineage signal).
+
+    The derivation is read-only over already-assembled state; safe to call
+    after every re-assembly (chat targeted re-run, override re-application).
+    """
+    rules_by_element: dict[str, list[RuleStatus]] = {}
+    for rule in state.dq_rules:
+        rules_by_element.setdefault(rule.element, []).append(rule.status)
+
+    touched_elements: set[str] = set()
+    for edge in state.column_edges:
+        touched_elements.add(edge.source_element)
+        touched_elements.add(edge.target_element)
+
+    for table in state.tables:
+        for col in table.columns:
+            element = f"{table.name}.{col.name}"
+            statuses = rules_by_element.get(element, [])
+            if RuleStatus.REJECTED in statuses:
+                col.control_status = ColumnControlStatus.DISSENTED
+            elif RuleStatus.ACCEPTED in statuses:
+                col.control_status = ColumnControlStatus.CONTROLLED
+            elif element in touched_elements:
+                col.control_status = ColumnControlStatus.SOURCED
+            elif table.role is TableRole.OUTPUT:
+                col.control_status = ColumnControlStatus.NOT_SOURCED
+            else:
+                col.control_status = ColumnControlStatus.NOT_CONTROLLED
 
 
 __all__ = [

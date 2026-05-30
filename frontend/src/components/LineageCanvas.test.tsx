@@ -80,6 +80,7 @@ function makeState(): RunState {
             source: "H",
             confidence: "High",
             review_status: "Proposed",
+            control_status: null,
           },
           {
             name: "cust_id",
@@ -89,6 +90,7 @@ function makeState(): RunState {
             source: "H",
             confidence: "High",
             review_status: "Proposed",
+            control_status: null,
           },
         ],
         source: "H",
@@ -112,6 +114,7 @@ function makeState(): RunState {
             source: "E",
             confidence: "High",
             review_status: "Proposed",
+            control_status: null,
           },
         ],
         source: "E",
@@ -208,5 +211,88 @@ describe("LineageCanvas", () => {
     );
     fireEvent.click(screen.getByTestId("node-t1"));
     expect(onNode).toHaveBeenCalledWith("t1");
+  });
+
+  // Phase 4D-P2 — control_status pill + source-system grouping.
+
+  it("renders a control_status pill when set on a column", () => {
+    const s = makeState();
+    s.tables[0].columns[0].control_status = "Controlled";
+    s.tables[0].columns[1].control_status = "Sourced";
+    s.tables[1].columns[0].control_status = "Not Sourced";
+    render(
+      <LineageCanvas
+        state={s}
+        nodes={[makeNode("t1", "raw.events", "Source"), makeNode("t2", "mart.scores", "Output")]}
+        edges={[]}
+        selectedEdgeId={null}
+        onSelectNode={() => {}}
+        onSelectEdge={() => {}}
+        renderNodeHeader={(n) => <span>{n.data.name}</span>}
+      />,
+    );
+    expect(screen.getByTestId("control-status-raw.events.amount")).toHaveAttribute(
+      "data-control-status",
+      "Controlled",
+    );
+    expect(screen.getByTestId("control-status-mart.scores.total")).toHaveAttribute(
+      "data-control-status",
+      "Not Sourced",
+    );
+  });
+
+  it("omits the pill when control_status is null", () => {
+    render(
+      <LineageCanvas
+        state={makeState()}
+        nodes={[makeNode("t1", "raw.events", "Source"), makeNode("t2", "mart.scores", "Output")]}
+        edges={[]}
+        selectedEdgeId={null}
+        onSelectNode={() => {}}
+        onSelectEdge={() => {}}
+        renderNodeHeader={(n) => <span>{n.data.name}</span>}
+      />,
+    );
+    expect(screen.queryByTestId("control-status-raw.events.amount")).toBeNull();
+  });
+
+  it("groups tables by source_system inside each lane", () => {
+    const s = makeState();
+    s.tables[0].source_system = "Third Party System";
+    s.tables[1].source_system = "Data Lake";
+    const nodes = [
+      makeNode("t1", "raw.events", "Source"),
+      makeNode("t2", "mart.scores", "Output"),
+    ];
+    nodes[0].data.source_system = "Third Party System";
+    nodes[1].data.source_system = "Data Lake";
+    render(
+      <LineageCanvas
+        state={s}
+        nodes={nodes}
+        edges={[]}
+        selectedEdgeId={null}
+        onSelectNode={() => {}}
+        onSelectEdge={() => {}}
+        renderNodeHeader={(n) => <span>{n.data.name}</span>}
+      />,
+    );
+    expect(screen.getByTestId("system-group-Source-Third Party System")).toBeTruthy();
+    expect(screen.getByTestId("system-group-Output-Data Lake")).toBeTruthy();
+  });
+
+  it("falls back to '(unsystemed)' when source_system is null", () => {
+    render(
+      <LineageCanvas
+        state={makeState()}
+        nodes={[makeNode("t1", "raw.events", "Source")]}
+        edges={[]}
+        selectedEdgeId={null}
+        onSelectNode={() => {}}
+        onSelectEdge={() => {}}
+        renderNodeHeader={(n) => <span>{n.data.name}</span>}
+      />,
+    );
+    expect(screen.getByTestId("system-group-Source-(unsystemed)")).toBeTruthy();
   });
 });

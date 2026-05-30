@@ -128,6 +128,21 @@ class SecurityMode(str, Enum):
     LOCAL = "local"
 
 
+class ColumnControlStatus(str, Enum):
+    """Per-column governance state (Phase 4D-P2 lineage polish).
+
+    Derived from lineage + DQ at assemble time; tells the reviewer at a glance
+    whether a column has known upstream lineage and known quality controls.
+    Matches the vocabulary on the user's reference Lineage Sample.png.
+    """
+
+    CONTROLLED = "Controlled"  # has an Accepted DQ rule
+    SOURCED = "Sourced"  # known upstream lineage, no accepted control yet
+    NOT_CONTROLLED = "Not Controlled"  # no controls, no upstream lineage
+    NOT_SOURCED = "Not Sourced"  # output column without traced upstream
+    DISSENTED = "Dissented"  # an Accepted-then-Rejected reviewer dissent
+
+
 # --------------------------------------------------------------------------- #
 # §4.2 Provenance mixin
 # --------------------------------------------------------------------------- #
@@ -152,6 +167,10 @@ class Column(Provenanced):
     inferred_type: str | None = None
     role: ColumnRole = ColumnRole.ATTRIBUTE
     used_in: list[str] = Field(default_factory=list)  # roll-up of UsageObservation (R3)
+    # Phase 4D-P2: governance state surfaced as a colored pill in the Lineage
+    # canvas. Derived in `assemble_run_state` from DQ-rule state + the column
+    # edges that touch this column. None = not yet derived (pre-Phase-2 runs).
+    control_status: ColumnControlStatus | None = None
 
 
 class Table(Provenanced):
@@ -300,6 +319,7 @@ __all__ = [
     "Severity",
     "ModelStatus",
     "RuleStatus",
+    "ColumnControlStatus",
     "ReviewStatus",
     "SecurityMode",
     # entities

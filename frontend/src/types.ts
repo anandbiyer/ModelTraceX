@@ -172,6 +172,13 @@ export interface ModelDoc {
   confidence: Confidence;
   telemetry: { tokens_in: number; tokens_out: number; est_cost: number };
 }
+export type ColumnControlStatus =
+  | "Controlled"
+  | "Sourced"
+  | "Not Controlled"
+  | "Not Sourced"
+  | "Dissented";
+
 export interface Column {
   name: string;
   inferred_type: string | null;
@@ -180,6 +187,8 @@ export interface Column {
   source: Provenance;
   confidence: Confidence;
   review_status: ReviewStatus;
+  /** Governance pill state derived in `_derive_control_status` (Phase 4D-P2). */
+  control_status: ColumnControlStatus | null;
 }
 export interface Table {
   table_id: string;

@@ -15,7 +15,30 @@
  */
 import { type ReactNode, useEffect, useLayoutEffect, useRef, useState } from "react";
 
-import type { GraphEdge, GraphNode, RunState, TableRole } from "../types";
+import type {
+  ColumnControlStatus,
+  GraphEdge,
+  GraphNode,
+  RunState,
+  TableRole,
+} from "../types";
+
+/** Status-pill styling — matches the data-governance palette of the reference. */
+const CONTROL_STATUS_PILL: Record<ColumnControlStatus, string> = {
+  Controlled: "border-green/40 bg-green-soft text-green",
+  Sourced: "border-accent/40 bg-accent-soft text-accent",
+  Dissented: "border-amber/40 bg-amber-soft text-amber",
+  "Not Controlled": "border-red/40 bg-red-soft text-red",
+  "Not Sourced": "border-red/40 bg-red-soft text-red",
+};
+
+const CONTROL_STATUS_EDGE_STROKE: Partial<Record<ColumnControlStatus, string>> = {
+  Controlled: "var(--color-green, #4ADE80)",
+  Sourced: "var(--color-accent, #22D3EE)",
+  Dissented: "var(--color-amber, #FBBF24)",
+  "Not Controlled": "var(--color-red, #F87171)",
+  "Not Sourced": "var(--color-red, #F87171)",
+};
 
 const LANES: { role: TableRole; title: string; headerClass: string; emptyHint: string }[] = [
   {
@@ -134,6 +157,16 @@ export function LineageCanvas(props: LineageCanvasProps) {
   // `tick` is read so the layout effect re-runs measurement after refs settle.
   void tick;
 
+  // Look up the target column's control_status so the edge can carry its color
+  // (Phase 4D-P2: control-state edge coloring overrides the transformation-type
+  // heuristic when status is known).
+  const controlStatusByElement = new Map<string, ColumnControlStatus | null>();
+  for (const table of state.tables) {
+    for (const col of table.columns) {
+      controlStatusByElement.set(`${table.name}.${col.name}`, col.control_status);
+    }
+  }
+
   const tablePairsWithColumnEdge = new Set<string>();
   for (const ce of state.column_edges) {
     const src = endpointFor(ce.source_element, "right");
@@ -141,11 +174,16 @@ export function LineageCanvas(props: LineageCanvasProps) {
     if (!src || !tgt) continue;
     tablePairsWithColumnEdge.add(`${tableOf(ce.source_element)}|${tableOf(ce.target_element)}`);
     const dx = Math.max(40, (tgt.x - src.x) / 2);
+    const cs = controlStatusByElement.get(ce.target_element);
+    const csStroke = cs ? CONTROL_STATUS_EDGE_STROKE[cs] : undefined;
+    const color = csStroke
+      ? { stroke: csStroke, cls: "" }
+      : edgeColor(ce.transformation_type);
     paths.push({
       id: ce.edge_id,
       d: `M ${src.x},${src.y} C ${src.x + dx},${src.y} ${tgt.x - dx},${tgt.y} ${tgt.x},${tgt.y}`,
-      color: edgeColor(ce.transformation_type),
-      title: `${ce.source_element} → ${ce.target_element} (${ce.transformation_type})`,
+      color,
+      title: `${ce.source_element} → ${ce.target_element} (${ce.transformation_type})${cs ? ` · ${cs}` : ""}`,
       fromColumns: true,
     });
   }
@@ -206,67 +244,96 @@ export function LineageCanvas(props: LineageCanvasProps) {
                     {lane.emptyHint}
                   </div>
                 ) : (
-                  laneNodes.map((n) => {
-                    const tableName = n.data.name;
-                    const table = state.tables.find((t) => t.table_id === n.id);
-                    return (
+                  // Phase 4D-P2: group tables by source_system within the lane.
+                  // Tables without a source_system land under the "(unsystemed)"
+                  // bucket so they're still visible. Group order is alphabetical
+                  // (deterministic across re-renders).
+                  Array.from(
+                    laneNodes.reduce((acc, n) => {
+                      const sys = n.data.source_system ?? "(unsystemed)";
+                      if (!acc.has(sys)) acc.set(sys, []);
+                      acc.get(sys)!.push(n);
+                      return acc;
+                    }, new Map<string, GraphNode[]>()),
+                  )
+                    .sort(([a], [b]) => a.localeCompare(b))
+                    .map(([systemName, systemNodes]) => (
                       <div
-                        key={n.id}
-                        ref={(el) => setCard(el, n.id)}
-                        onClick={() => onSelectNode(n.id)}
-                        className="cursor-pointer rounded border border-border bg-elev"
-                        data-testid={`node-${n.id}`}
+                        key={systemName}
+                        className="flex flex-col gap-1.5"
+                        data-testid={`system-group-${lane.role}-${systemName}`}
                       >
-                        <div className="border-b border-border-soft px-2 py-1">
-                          {renderNodeHeader(n)}
+                        <div className="px-1 text-[9px] font-semibold uppercase tracking-wider text-muted">
+                          {systemName}{" "}
+                          <span className="text-dim">({systemNodes.length})</span>
                         </div>
-                        {table && table.columns.length > 0 ? (
-                          <ul className="flex flex-col py-1" data-testid={`columns-${n.id}`}>
-                            {table.columns.map((c) => {
-                              const key = `${tableName}.${c.name}`;
-                              return (
-                                <li
-                                  key={c.name}
-                                  ref={(el) => setRow(el, key)}
-                                  className="mono flex items-center justify-between gap-2 px-2 py-[3px] text-[10.5px] text-text"
-                                  data-testid={`col-${key}`}
-                                >
-                                  <span className="truncate">{c.name}</span>
-                                  <span className="flex items-center gap-0.5">
-                                    <span
-                                      className={
-                                        "rounded border px-1 py-0 text-[8px] font-semibold " +
-                                        (c.source === "E"
-                                          ? "border-border bg-elev text-dim"
-                                          : c.source === "H"
-                                            ? "border-border bg-elev text-dim"
-                                            : "border-border bg-elev text-dim")
-                                      }
-                                    >
-                                      {c.source}
-                                    </span>
-                                    <span
-                                      className={
-                                        "inline-block h-1.5 w-1.5 rounded-full " +
-                                        (c.confidence === "High"
-                                          ? "bg-green"
-                                          : c.confidence === "Medium"
-                                            ? "bg-amber"
-                                            : "bg-red")
-                                      }
-                                      title={`confidence ${c.confidence.toLowerCase()}`}
-                                    />
-                                  </span>
-                                </li>
-                              );
-                            })}
-                          </ul>
-                        ) : (
-                          <div className="px-2 py-1 text-[10px] italic text-muted">no columns</div>
-                        )}
+                        {systemNodes.map((n) => {
+                          const tableName = n.data.name;
+                          const table = state.tables.find((t) => t.table_id === n.id);
+                          return (
+                            <div
+                              key={n.id}
+                              ref={(el) => setCard(el, n.id)}
+                              onClick={() => onSelectNode(n.id)}
+                              className="cursor-pointer rounded border border-border bg-elev"
+                              data-testid={`node-${n.id}`}
+                            >
+                              <div className="border-b border-border-soft px-2 py-1">
+                                {renderNodeHeader(n)}
+                              </div>
+                              {table && table.columns.length > 0 ? (
+                                <ul className="flex flex-col py-1" data-testid={`columns-${n.id}`}>
+                                  {table.columns.map((c) => {
+                                    const key = `${tableName}.${c.name}`;
+                                    const cs = c.control_status;
+                                    return (
+                                      <li
+                                        key={c.name}
+                                        ref={(el) => setRow(el, key)}
+                                        className="mono flex items-center justify-between gap-2 px-2 py-[3px] text-[10.5px] text-text"
+                                        data-testid={`col-${key}`}
+                                      >
+                                        <span className="truncate">{c.name}</span>
+                                        <span className="flex items-center gap-1">
+                                          {cs && (
+                                            <span
+                                              className={
+                                                "rounded border px-1 py-0 text-[8px] font-semibold uppercase " +
+                                                CONTROL_STATUS_PILL[cs]
+                                              }
+                                              title={`Control status: ${cs}`}
+                                              data-testid={`control-status-${key}`}
+                                              data-control-status={cs}
+                                            >
+                                              {cs}
+                                            </span>
+                                          )}
+                                          <span
+                                            className={
+                                              "inline-block h-1.5 w-1.5 rounded-full " +
+                                              (c.confidence === "High"
+                                                ? "bg-green"
+                                                : c.confidence === "Medium"
+                                                  ? "bg-amber"
+                                                  : "bg-red")
+                                            }
+                                            title={`confidence ${c.confidence.toLowerCase()}`}
+                                          />
+                                        </span>
+                                      </li>
+                                    );
+                                  })}
+                                </ul>
+                              ) : (
+                                <div className="px-2 py-1 text-[10px] italic text-muted">
+                                  no columns
+                                </div>
+                              )}
+                            </div>
+                          );
+                        })}
                       </div>
-                    );
-                  })
+                    ))
                 )}
               </div>
             </div>
